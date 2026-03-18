@@ -13,11 +13,27 @@ use crate::traits::Json;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
+/// Whether a post is a formal place review (requires rating) or a general post.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+#[serde(rename_all = "snake_case")]
+#[derive(Default)]
+pub enum MapkyAppPostKind {
+    /// Formal rating of a place — requires the `rating` field.
+    Review,
+    /// Comment, question, reply, or media post — `rating` must be absent.
+    #[default]
+    Post,
+}
+
 /// Unified post type for reviews, questions, comments about an OSM place.
 /// URI: /pub/mapky.app/posts/:post_id
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 #[derive(Serialize, Deserialize, Default, Clone, Debug)]
 pub struct MapkyAppPost {
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
+    #[serde(default)]
+    pub kind: MapkyAppPostKind,
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
     pub place: OsmRef,
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
@@ -41,6 +57,11 @@ impl Default for OsmRef {
 #[cfg(target_arch = "wasm32")]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 impl MapkyAppPost {
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(getter))]
+    pub fn kind(&self) -> MapkyAppPostKind {
+        self.kind.clone()
+    }
+
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(getter))]
     pub fn content(&self) -> Option<String> {
         self.content.clone()
@@ -74,6 +95,7 @@ impl Json for MapkyAppPost {}
 impl MapkyAppPost {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(constructor))]
     pub fn new(
+        kind: MapkyAppPostKind,
         place: OsmRef,
         content: Option<String>,
         rating: Option<u8>,
@@ -81,6 +103,7 @@ impl MapkyAppPost {
         parent: Option<String>,
     ) -> Self {
         let post = MapkyAppPost {
+            kind,
             place,
             content,
             rating,
@@ -110,6 +133,7 @@ impl Validatable for MapkyAppPost {
         });
 
         MapkyAppPost {
+            kind: self.kind,
             place: self.place,
             content,
             rating: self.rating,
@@ -126,21 +150,34 @@ impl Validatable for MapkyAppPost {
         // Validate place
         self.place.validate()?;
 
-        // Must have at least one of content, rating, or attachments
         let has_content = self
             .content
             .as_ref()
             .is_some_and(|c| !c.trim().is_empty());
-        let has_rating = self.rating.is_some();
         let has_attachments = self
             .attachments
             .as_ref()
             .is_some_and(|a| !a.is_empty());
 
-        if !has_content && !has_rating && !has_attachments {
-            return Err(
-                "Validation Error: Post must have content, a rating, or attachments".into(),
-            );
+        // Kind-specific validation
+        match self.kind {
+            MapkyAppPostKind::Review => {
+                if self.rating.is_none() {
+                    return Err("Validation Error: Review must have a rating".into());
+                }
+            }
+            MapkyAppPostKind::Post => {
+                if self.rating.is_some() {
+                    return Err(
+                        "Validation Error: Post kind cannot have a rating — use Review".into(),
+                    );
+                }
+                if !has_content && !has_attachments {
+                    return Err(
+                        "Validation Error: Post must have content or attachments".into(),
+                    );
+                }
+            }
         }
 
         // Validate content length
@@ -227,6 +264,7 @@ mod tests {
     #[test]
     fn test_create_id() {
         let post = MapkyAppPost::new(
+            MapkyAppPostKind::Post,
             test_place(),
             Some("Hello World!".to_string()),
             None,
@@ -241,12 +279,14 @@ mod tests {
     fn test_new() {
         let content = "This is a test review".to_string();
         let post = MapkyAppPost::new(
+            MapkyAppPostKind::Review,
             test_place(),
             Some(content.clone()),
             Some(8),
             None,
             None,
         );
+        assert_eq!(post.kind, MapkyAppPostKind::Review);
         assert_eq!(post.content.unwrap(), content);
         assert_eq!(post.rating, Some(8));
         assert!(post.parent.is_none());
@@ -256,6 +296,7 @@ mod tests {
     #[test]
     fn test_create_path() {
         let post = MapkyAppPost::new(
+            MapkyAppPostKind::Post,
             test_place(),
             Some("Test".to_string()),
             None,
@@ -272,6 +313,7 @@ mod tests {
     #[test]
     fn test_sanitize() {
         let post = MapkyAppPost::new(
+            MapkyAppPostKind::Post,
             test_place(),
             Some("  trimmed content  ".to_string()),
             None,
@@ -290,6 +332,7 @@ mod tests {
     #[test]
     fn test_validate_happy() {
         let post = MapkyAppPost::new(
+            MapkyAppPostKind::Review,
             test_place(),
             Some("Great place!".to_string()),
             Some(8),
@@ -302,7 +345,14 @@ mod tests {
 
     #[test]
     fn test_validate_rating_only() {
-        let post = MapkyAppPost::new(test_place(), None, Some(5), None, None);
+        let post = MapkyAppPost::new(
+            MapkyAppPostKind::Review,
+            test_place(),
+            None,
+            Some(5),
+            None,
+            None,
+        );
         let id = post.create_id();
         assert!(post.validate(Some(&id)).is_ok());
     }
@@ -310,6 +360,7 @@ mod tests {
     #[test]
     fn test_validate_attachments_only() {
         let post = MapkyAppPost::new(
+            MapkyAppPostKind::Post,
             test_place(),
             None,
             None,
@@ -324,7 +375,14 @@ mod tests {
 
     #[test]
     fn test_validate_empty_post_rejected() {
-        let post = MapkyAppPost::new(test_place(), None, None, None, None);
+        let post = MapkyAppPost::new(
+            MapkyAppPostKind::Post,
+            test_place(),
+            None,
+            None,
+            None,
+            None,
+        );
         let id = post.create_id();
         let result = post.validate(Some(&id));
         assert!(result.is_err());
@@ -333,19 +391,47 @@ mod tests {
 
     #[test]
     fn test_validate_rating_range() {
-        let post = MapkyAppPost::new(test_place(), Some("Review".into()), Some(0), None, None);
+        let post = MapkyAppPost::new(
+            MapkyAppPostKind::Review,
+            test_place(),
+            Some("Review".into()),
+            Some(0),
+            None,
+            None,
+        );
         let id = post.create_id();
         assert!(post.validate(Some(&id)).is_err());
 
-        let post = MapkyAppPost::new(test_place(), Some("Review".into()), Some(11), None, None);
+        let post = MapkyAppPost::new(
+            MapkyAppPostKind::Review,
+            test_place(),
+            Some("Review".into()),
+            Some(11),
+            None,
+            None,
+        );
         let id = post.create_id();
         assert!(post.validate(Some(&id)).is_err());
 
-        let post = MapkyAppPost::new(test_place(), Some("Review".into()), Some(10), None, None);
+        let post = MapkyAppPost::new(
+            MapkyAppPostKind::Review,
+            test_place(),
+            Some("Review".into()),
+            Some(10),
+            None,
+            None,
+        );
         let id = post.create_id();
         assert!(post.validate(Some(&id)).is_ok());
 
-        let post = MapkyAppPost::new(test_place(), Some("Review".into()), Some(1), None, None);
+        let post = MapkyAppPost::new(
+            MapkyAppPostKind::Review,
+            test_place(),
+            Some("Review".into()),
+            Some(1),
+            None,
+            None,
+        );
         let id = post.create_id();
         assert!(post.validate(Some(&id)).is_ok());
     }
@@ -353,6 +439,7 @@ mod tests {
     #[test]
     fn test_validate_invalid_parent_uri() {
         let post = MapkyAppPost {
+            kind: MapkyAppPostKind::Post,
             place: test_place(),
             content: Some("Valid content".into()),
             rating: None,
@@ -368,6 +455,7 @@ mod tests {
     #[test]
     fn test_validate_non_pubky_attachment() {
         let post = MapkyAppPost {
+            kind: MapkyAppPostKind::Post,
             place: test_place(),
             content: Some("Valid content".into()),
             rating: None,
@@ -386,6 +474,7 @@ mod tests {
             .map(|i| format!("pubky://user123/pub/pubky.app/files/{:013}", i))
             .collect();
         let post = MapkyAppPost::new(
+            MapkyAppPostKind::Post,
             test_place(),
             Some("Content".into()),
             None,
@@ -401,6 +490,7 @@ mod tests {
     #[test]
     fn test_validate_invalid_place() {
         let post = MapkyAppPost {
+            kind: MapkyAppPostKind::Post,
             place: OsmRef::new(OsmElementType::Node, 0),
             content: Some("Content".into()),
             rating: None,
@@ -416,6 +506,7 @@ mod tests {
     #[test]
     fn test_try_from_valid() {
         let post_json = r#"{
+            "kind": "review",
             "place": {"osm_type": "node", "osm_id": 1573053883},
             "content": "Great place!",
             "rating": 8,
@@ -424,6 +515,7 @@ mod tests {
         }"#;
 
         let post = MapkyAppPost::new(
+            MapkyAppPostKind::Review,
             OsmRef::new(OsmElementType::Node, 1573053883),
             Some("Great place!".into()),
             Some(8),
@@ -435,7 +527,88 @@ mod tests {
         let result = <MapkyAppPost as Validatable>::try_from(post_json.as_bytes(), &id);
         assert!(result.is_ok());
         let parsed = result.unwrap();
+        assert_eq!(parsed.kind, MapkyAppPostKind::Review);
         assert_eq!(parsed.content.unwrap(), "Great place!");
         assert_eq!(parsed.rating, Some(8));
+    }
+
+    // --- New kind-specific tests ---
+
+    #[test]
+    fn test_validate_review_requires_rating() {
+        let post = MapkyAppPost::new(
+            MapkyAppPostKind::Review,
+            test_place(),
+            Some("Nice spot".into()),
+            None, // missing rating
+            None,
+            None,
+        );
+        let id = post.create_id();
+        let result = post.validate(Some(&id));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Review must have a rating"));
+    }
+
+    #[test]
+    fn test_validate_post_no_rating() {
+        let post = MapkyAppPost {
+            kind: MapkyAppPostKind::Post,
+            place: test_place(),
+            content: Some("Nice spot".into()),
+            rating: Some(7), // forbidden for Post
+            attachments: None,
+            parent: None,
+        };
+        let id = post.create_id();
+        let result = post.validate(Some(&id));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .contains("Post kind cannot have a rating"));
+    }
+
+    #[test]
+    fn test_validate_post_content_or_attachments() {
+        let post = MapkyAppPost::new(
+            MapkyAppPostKind::Post,
+            test_place(),
+            None,
+            None,
+            None,
+            None,
+        );
+        let id = post.create_id();
+        let result = post.validate(Some(&id));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("must have content or attachments"));
+    }
+
+    #[test]
+    fn test_validate_review_with_parent() {
+        let post = MapkyAppPost::new(
+            MapkyAppPostKind::Review,
+            test_place(),
+            Some("Follow-up review".into()),
+            Some(6),
+            None,
+            Some("pubky://user123/pub/mapky.app/posts/0034A0X7NJ52G".into()),
+        );
+        let id = post.create_id();
+        assert!(post.validate(Some(&id)).is_ok());
+    }
+
+    #[test]
+    fn test_validate_post_with_parent() {
+        let post = MapkyAppPost::new(
+            MapkyAppPostKind::Post,
+            test_place(),
+            Some("Good point!".into()),
+            None,
+            None,
+            Some("pubky://user123/pub/mapky.app/posts/0034A0X7NJ52G".into()),
+        );
+        let id = post.create_id();
+        assert!(post.validate(Some(&id)).is_ok());
     }
 }
