@@ -27,7 +27,3 @@ cargo test
 # Build WASM package
 wasm-pack build --target bundler
 ```
-
-## License
-
-MIT
