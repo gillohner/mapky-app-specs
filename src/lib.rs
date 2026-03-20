@@ -17,7 +17,7 @@ pub use constants::{
 
 // Re-export domain types
 pub use models::osm_ref::{OsmElementType, OsmRef};
-pub use models::post::MapkyAppPost;
+pub use models::post::{MapkyAppPost, MapkyAppPostKind};
 pub use models::location_tag::MapkyAppLocationTag;
 pub use models::collection::MapkyAppCollection;
 pub use models::incident::{IncidentSeverity, IncidentType, MapkyAppIncident};
