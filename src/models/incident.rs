@@ -271,7 +271,7 @@ mod tests {
         );
         incident.attachments = Some(
             (0..6)
-                .map(|i| format!("pubky://user123/pub/pubky.app/files/{:013}", i))
+                .map(|i| format!("pubky://user123/pub/mapky.app/files/{:013}", i))
                 .collect(),
         );
         let id = incident.create_id();
@@ -290,7 +290,7 @@ mod tests {
         );
         incident.attachments = Some(
             (0..5)
-                .map(|i| format!("pubky://user123/pub/pubky.app/files/{:013}", i))
+                .map(|i| format!("pubky://user123/pub/mapky.app/files/{:013}", i))
                 .collect(),
         );
         let id = incident.create_id();

@@ -8,11 +8,6 @@ pub const MAX_CONTENT_LENGTH: usize = 5000;
 pub const MAX_ATTACHMENTS: usize = 20;
 pub const MAX_ATTACHMENT_URL_LENGTH: usize = 300;
 
-// Tag limits (shared by LocationTag category + label)
-pub const MAX_TAG_LABEL_LENGTH: usize = 20;
-pub const MIN_TAG_LABEL_LENGTH: usize = 1;
-pub const INVALID_TAG_CHARS: &[char] = &[',', ':'];
-
 // Collection limits
 pub const MAX_COLLECTION_NAME_LENGTH: usize = 100;
 pub const MAX_COLLECTION_ITEMS: usize = 500;

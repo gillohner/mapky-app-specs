@@ -1,8 +1,8 @@
 use crate::{
     common::sanitize_url,
     constants::{MAX_COLLECTION_ITEMS, MAX_COLLECTION_NAME_LENGTH, MAX_DESCRIPTION_LENGTH},
-    models::osm_ref::OsmRef,
     traits::{HasIdPath, TimestampId, Validatable},
+    validation::validate_osm_url,
     MAPKY_PATH, PUBLIC_PATH,
 };
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,7 @@ pub struct MapkyAppCollection {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
     pub description: Option<String>,
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
-    pub items: Vec<OsmRef>,
+    pub items: Vec<String>,
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
     pub image_uri: Option<String>,
 }
@@ -34,7 +34,7 @@ impl MapkyAppCollection {
     pub fn new(
         name: String,
         description: Option<String>,
-        items: Vec<OsmRef>,
+        items: Vec<String>,
         image_uri: Option<String>,
     ) -> Self {
         let collection = MapkyAppCollection {
@@ -89,11 +89,12 @@ impl Validatable for MapkyAppCollection {
         let name = self.name.trim().to_string();
         let description = self.description.map(|d| d.trim().to_string());
         let image_uri = self.image_uri.map(|u| sanitize_url(&u));
+        let items = self.items.into_iter().map(|u| sanitize_url(&u)).collect();
 
         MapkyAppCollection {
             name,
             description,
-            items: self.items,
+            items,
             image_uri,
         }
     }
@@ -135,14 +136,13 @@ impl Validatable for MapkyAppCollection {
         // Validate each item and check for duplicates
         let mut seen = HashSet::new();
         for (i, item) in self.items.iter().enumerate() {
-            item.validate().map_err(|e| {
+            validate_osm_url(item).map_err(|e| {
                 format!("Validation Error: Item at index {}: {}", i, e)
             })?;
-            let canonical = item.canonical();
-            if !seen.insert(canonical.clone()) {
+            if !seen.insert(item.clone()) {
                 return Err(format!(
                     "Validation Error: Duplicate item in collection: {}",
-                    canonical
+                    item
                 ));
             }
         }
@@ -160,12 +160,11 @@ impl Validatable for MapkyAppCollection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::osm_ref::{OsmElementType, OsmRef};
 
-    fn test_items() -> Vec<OsmRef> {
+    fn test_items() -> Vec<String> {
         vec![
-            OsmRef::new(OsmElementType::Node, 1),
-            OsmRef::new(OsmElementType::Node, 2),
+            "https://www.openstreetmap.org/node/1".into(),
+            "https://www.openstreetmap.org/node/2".into(),
         ]
     }
 
@@ -208,8 +207,8 @@ mod tests {
     #[test]
     fn test_validate_duplicate_items() {
         let items = vec![
-            OsmRef::new(OsmElementType::Node, 1),
-            OsmRef::new(OsmElementType::Node, 1),
+            "https://www.openstreetmap.org/node/1".into(),
+            "https://www.openstreetmap.org/node/1".into(),
         ];
         let c = MapkyAppCollection::new("List".into(), None, items, None);
         let id = c.create_id();
@@ -231,13 +230,23 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_invalid_item() {
+        let items = vec!["https://example.com/not-osm".into()];
+        let c = MapkyAppCollection::new("List".into(), None, items, None);
+        let id = c.create_id();
+        let result = c.validate(Some(&id));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("OSM URL"));
+    }
+
+    #[test]
     fn test_try_from_valid() {
         let json = r#"{
             "name": "My Favorite Spots",
             "description": null,
             "items": [
-                {"osm_type": "node", "osm_id": 1},
-                {"osm_type": "node", "osm_id": 2}
+                "https://www.openstreetmap.org/node/1",
+                "https://www.openstreetmap.org/node/2"
             ],
             "image_uri": null
         }"#;
@@ -245,5 +254,17 @@ mod tests {
         let id = c.create_id();
         let result = <MapkyAppCollection as Validatable>::try_from(json.as_bytes(), &id);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_mixed_osm_types() {
+        let items = vec![
+            "https://www.openstreetmap.org/node/1".into(),
+            "https://www.openstreetmap.org/way/2".into(),
+            "https://www.openstreetmap.org/relation/3".into(),
+        ];
+        let c = MapkyAppCollection::new("Mixed".into(), None, items, None);
+        let id = c.create_id();
+        assert!(c.validate(Some(&id)).is_ok());
     }
 }

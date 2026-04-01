@@ -11,14 +11,11 @@ pub use constants::{
     MAX_COLLECTION_NAME_LENGTH, MAX_CONTENT_LENGTH, MAX_DESCRIPTION_LENGTH,
     MAX_INCIDENT_ATTACHMENTS, MAX_INCIDENT_DESCRIPTION_LENGTH, MAX_ROUTE_CONTROL_POINTS,
     MAX_ROUTE_DESCRIPTION_LENGTH, MAX_ROUTE_INSTRUCTION_LENGTH, MAX_ROUTE_NAME_LENGTH,
-    MAX_ROUTE_WAYPOINTS, MAX_TAG_LABEL_LENGTH, MAX_WAYPOINT_NAME_LENGTH, MIN_TAG_LABEL_LENGTH,
-    MIN_WAYPOINTS, PROTOCOL, PUBLIC_PATH,
+    MAX_ROUTE_WAYPOINTS, MAX_WAYPOINT_NAME_LENGTH, MIN_WAYPOINTS, PROTOCOL, PUBLIC_PATH,
 };
 
 // Re-export domain types
-pub use models::osm_ref::{OsmElementType, OsmRef};
 pub use models::post::{MapkyAppPost, MapkyAppPostKind};
-pub use models::location_tag::MapkyAppLocationTag;
 pub use models::collection::MapkyAppCollection;
 pub use models::incident::{IncidentSeverity, IncidentType, MapkyAppIncident};
 pub use models::geo_capture::{GeoCaptureKind, MapkyAppGeoCapture};

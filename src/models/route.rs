@@ -4,9 +4,8 @@ use crate::{
         MAX_ROUTE_CONTROL_POINTS, MAX_ROUTE_DESCRIPTION_LENGTH, MAX_ROUTE_INSTRUCTION_LENGTH,
         MAX_ROUTE_NAME_LENGTH, MAX_ROUTE_WAYPOINTS, MAX_WAYPOINT_NAME_LENGTH, MIN_WAYPOINTS,
     },
-    models::osm_ref::{OsmElementType, OsmRef},
     traits::{HasIdPath, TimestampId, Validatable},
-    validation::validate_coordinates,
+    validation::{validate_coordinates, validate_osm_way_url},
     MAPKY_PATH, PUBLIC_PATH,
 };
 use serde::{Deserialize, Serialize};
@@ -92,7 +91,7 @@ pub struct MapkyAppRoute {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
     pub waypoints: Vec<Waypoint>,
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
-    pub osm_ways: Option<Vec<OsmRef>>,
+    pub osm_ways: Option<Vec<String>>,
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
     pub control_points: Option<Vec<Waypoint>>,
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
@@ -174,11 +173,15 @@ impl Validatable for MapkyAppRoute {
         let name = self.name.trim().to_string();
         let description = self.description.map(|d| d.trim().to_string());
         let image_uri = self.image_uri.map(|u| sanitize_url(&u));
+        let osm_ways = self.osm_ways.map(|ways| {
+            ways.into_iter().map(|u| sanitize_url(&u)).collect()
+        });
 
         MapkyAppRoute {
             name,
             description,
             image_uri,
+            osm_ways,
             ..self
         }
     }
@@ -282,18 +285,12 @@ impl Validatable for MapkyAppRoute {
             }
         }
 
-        // Validate osm_ways — all must be Way type
+        // Validate osm_ways — all must be Way URLs
         if let Some(ref ways) = self.osm_ways {
             for (i, way) in ways.iter().enumerate() {
-                way.validate().map_err(|e| {
+                validate_osm_way_url(way).map_err(|e| {
                     format!("Validation Error: osm_ways[{}]: {}", i, e)
                 })?;
-                if way.osm_type != OsmElementType::Way {
-                    return Err(format!(
-                        "Validation Error: osm_ways[{}] must be Way type, got {}",
-                        i, way.osm_type
-                    ));
-                }
             }
         }
 
@@ -418,11 +415,13 @@ mod tests {
             RouteActivityType::Hiking,
             test_waypoints(),
         );
-        route.osm_ways = Some(vec![OsmRef::new(OsmElementType::Node, 123)]);
+        route.osm_ways = Some(vec![
+            "https://www.openstreetmap.org/node/123".into(),
+        ]);
         let id = route.create_id();
         let result = route.validate(Some(&id));
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Way type"));
+        assert!(result.unwrap_err().contains("Way URL"));
     }
 
     #[test]
@@ -433,8 +432,8 @@ mod tests {
             test_waypoints(),
         );
         route.osm_ways = Some(vec![
-            OsmRef::new(OsmElementType::Way, 123),
-            OsmRef::new(OsmElementType::Way, 456),
+            "https://www.openstreetmap.org/way/123".into(),
+            "https://www.openstreetmap.org/way/456".into(),
         ]);
         let id = route.create_id();
         assert!(route.validate(Some(&id)).is_ok());

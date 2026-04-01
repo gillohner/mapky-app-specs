@@ -1,6 +1,4 @@
-pub mod osm_ref;
 pub mod post;
-pub mod location_tag;
 pub mod collection;
 pub mod incident;
 pub mod geo_capture;
@@ -9,7 +7,7 @@ pub mod route;
 use crate::traits::Validatable;
 
 use super::{
-    MapkyAppPost, MapkyAppLocationTag, MapkyAppCollection,
+    MapkyAppPost, MapkyAppCollection,
     MapkyAppIncident, MapkyAppGeoCapture, MapkyAppRoute,
 };
 
@@ -17,7 +15,6 @@ use super::{
 #[derive(Debug, Clone)]
 pub enum MapkyAppObject {
     Post(post::MapkyAppPost),
-    LocationTag(location_tag::MapkyAppLocationTag),
     Collection(collection::MapkyAppCollection),
     Incident(incident::MapkyAppIncident),
     GeoCapture(geo_capture::MapkyAppGeoCapture),
@@ -26,16 +23,12 @@ pub enum MapkyAppObject {
 
 impl MapkyAppObject {
     /// Parse a blob into a MapkyAppObject based on the path segment.
-    /// path_segment should be e.g. "posts", "location_tags", etc.
+    /// path_segment should be e.g. "posts", "collections", etc.
     pub fn from_path(path_segment: &str, blob: &[u8], id: &str) -> Result<Self, String> {
         match path_segment {
             "posts" => {
                 let obj = <MapkyAppPost as Validatable>::try_from(blob, id)?;
                 Ok(MapkyAppObject::Post(obj))
-            }
-            "location_tags" => {
-                let obj = <MapkyAppLocationTag as Validatable>::try_from(blob, id)?;
-                Ok(MapkyAppObject::LocationTag(obj))
             }
             "collections" => {
                 let obj = <MapkyAppCollection as Validatable>::try_from(blob, id)?;

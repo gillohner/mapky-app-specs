@@ -1,7 +1,7 @@
 use crate::{
     constants::{MAPKY_PATH, PROTOCOL, PUBLIC_PATH},
     traits::HasIdPath,
-    MapkyAppPost, MapkyAppLocationTag, MapkyAppCollection,
+    MapkyAppPost, MapkyAppCollection,
     MapkyAppIncident, MapkyAppGeoCapture, MapkyAppRoute,
 };
 
@@ -18,13 +18,6 @@ pub fn mapky_base_uri_builder(user_id: String) -> String {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = mapkyPostUriBuilder))]
 pub fn mapky_post_uri_builder(author_id: String, post_id: String) -> String {
     let path = MapkyAppPost::create_path(&post_id);
-    [PROTOCOL, &author_id, &path].concat()
-}
-
-/// Builds a LocationTag URI
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = mapkyLocationTagUriBuilder))]
-pub fn mapky_location_tag_uri_builder(author_id: String, tag_id: String) -> String {
-    let path = MapkyAppLocationTag::create_path(&tag_id);
     [PROTOCOL, &author_id, &path].concat()
 }
 

@@ -200,7 +200,7 @@ mod tests {
     #[test]
     fn test_create_id() {
         let capture = MapkyAppGeoCapture::new(
-            "pubky://user123/pub/pubky.app/files/0034A0X7NJ52G".into(),
+            "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".into(),
             GeoCaptureKind::Photo,
             47.3769,
             8.5417,
@@ -212,7 +212,7 @@ mod tests {
     #[test]
     fn test_create_path() {
         let capture = MapkyAppGeoCapture::new(
-            "pubky://user123/pub/pubky.app/files/0034A0X7NJ52G".into(),
+            "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".into(),
             GeoCaptureKind::Panorama,
             0.0,
             0.0,
@@ -225,7 +225,7 @@ mod tests {
     #[test]
     fn test_validate_happy() {
         let capture = MapkyAppGeoCapture::new(
-            "pubky://user123/pub/pubky.app/files/0034A0X7NJ52G".into(),
+            "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".into(),
             GeoCaptureKind::Photo,
             47.3769,
             8.5417,
@@ -237,7 +237,7 @@ mod tests {
     #[test]
     fn test_validate_invalid_coordinates() {
         let capture = MapkyAppGeoCapture::new(
-            "pubky://user123/pub/pubky.app/files/0034A0X7NJ52G".into(),
+            "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".into(),
             GeoCaptureKind::Photo,
             91.0,
             0.0,
@@ -249,7 +249,7 @@ mod tests {
     #[test]
     fn test_validate_invalid_pitch() {
         let mut capture = MapkyAppGeoCapture::new(
-            "pubky://user123/pub/pubky.app/files/0034A0X7NJ52G".into(),
+            "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".into(),
             GeoCaptureKind::Photo,
             0.0,
             0.0,
@@ -262,7 +262,7 @@ mod tests {
     #[test]
     fn test_validate_sequence_pair() {
         let mut capture = MapkyAppGeoCapture::new(
-            "pubky://user123/pub/pubky.app/files/0034A0X7NJ52G".into(),
+            "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".into(),
             GeoCaptureKind::Photo,
             0.0,
             0.0,
@@ -279,7 +279,7 @@ mod tests {
     #[test]
     fn test_validate_sequence_pair_both_present() {
         let mut capture = MapkyAppGeoCapture::new(
-            "pubky://user123/pub/pubky.app/files/0034A0X7NJ52G".into(),
+            "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".into(),
             GeoCaptureKind::Photo,
             0.0,
             0.0,
@@ -318,7 +318,7 @@ mod tests {
         ];
         for kind in kinds {
             let capture = MapkyAppGeoCapture::new(
-                "pubky://user123/pub/pubky.app/files/0034A0X7NJ52G".into(),
+                "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".into(),
                 kind,
                 0.0,
                 0.0,
@@ -331,7 +331,7 @@ mod tests {
     #[test]
     fn test_serde_roundtrip() {
         let capture = MapkyAppGeoCapture::new(
-            "pubky://user123/pub/pubky.app/files/0034A0X7NJ52G".into(),
+            "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".into(),
             GeoCaptureKind::Model3d,
             47.3769,
             8.5417,

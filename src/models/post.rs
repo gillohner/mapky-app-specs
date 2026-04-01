@@ -1,8 +1,8 @@
 use crate::{
     common::sanitize_url,
     constants::{MAX_ATTACHMENTS, MAX_ATTACHMENT_URL_LENGTH, MAX_CONTENT_LENGTH},
-    models::osm_ref::OsmRef,
     traits::{HasIdPath, TimestampId, Validatable},
+    validation::validate_osm_url,
     MAPKY_PATH, PUBLIC_PATH,
 };
 use serde::{Deserialize, Serialize};
@@ -35,7 +35,7 @@ pub struct MapkyAppPost {
     #[serde(default)]
     pub kind: MapkyAppPostKind,
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
-    pub place: OsmRef,
+    pub place: String,
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
     pub content: Option<String>,
     pub rating: Option<u8>,
@@ -45,21 +45,17 @@ pub struct MapkyAppPost {
     pub parent: Option<String>,
 }
 
-impl Default for OsmRef {
-    fn default() -> Self {
-        Self {
-            osm_type: crate::models::osm_ref::OsmElementType::Node,
-            osm_id: 0,
-        }
-    }
-}
-
 #[cfg(target_arch = "wasm32")]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 impl MapkyAppPost {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(getter))]
     pub fn kind(&self) -> MapkyAppPostKind {
         self.kind.clone()
+    }
+
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(getter))]
+    pub fn place(&self) -> String {
+        self.place.clone()
     }
 
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(getter))]
@@ -96,7 +92,7 @@ impl MapkyAppPost {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(constructor))]
     pub fn new(
         kind: MapkyAppPostKind,
-        place: OsmRef,
+        place: String,
         content: Option<String>,
         rating: Option<u8>,
         attachments: Option<Vec<String>>,
@@ -126,6 +122,7 @@ impl HasIdPath for MapkyAppPost {
 
 impl Validatable for MapkyAppPost {
     fn sanitize(self) -> Self {
+        let place = sanitize_url(&self.place);
         let content = self.content.map(|c| c.trim().to_string());
         let parent = self.parent.map(|uri| sanitize_url(&uri));
         let attachments = self.attachments.map(|urls| {
@@ -134,7 +131,7 @@ impl Validatable for MapkyAppPost {
 
         MapkyAppPost {
             kind: self.kind,
-            place: self.place,
+            place,
             content,
             rating: self.rating,
             attachments,
@@ -147,8 +144,8 @@ impl Validatable for MapkyAppPost {
             self.validate_id(id)?;
         }
 
-        // Validate place
-        self.place.validate()?;
+        // Validate place (OSM URL)
+        validate_osm_url(&self.place)?;
 
         let has_content = self
             .content
@@ -254,11 +251,10 @@ impl Validatable for MapkyAppPost {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::osm_ref::OsmElementType;
     use crate::traits::Validatable;
 
-    fn test_place() -> OsmRef {
-        OsmRef::new(OsmElementType::Node, 1573053883)
+    fn test_place() -> String {
+        "https://www.openstreetmap.org/node/1573053883".to_string()
     }
 
     #[test]
@@ -318,7 +314,7 @@ mod tests {
             Some("  trimmed content  ".to_string()),
             None,
             Some(vec![
-                "  pubky://user123/pub/pubky.app/files/0034A0X7NJ52G  ".to_string(),
+                "  pubky://user123/pub/mapky.app/files/0034A0X7NJ52G  ".to_string(),
             ]),
             Some("  pubky://user123/pub/mapky.app/posts/0034A0X7NJ52G  ".to_string()),
         );
@@ -365,7 +361,7 @@ mod tests {
             None,
             None,
             Some(vec![
-                "pubky://user123/pub/pubky.app/files/0034A0X7NJ52G".to_string(),
+                "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".to_string(),
             ]),
             None,
         );
@@ -471,7 +467,7 @@ mod tests {
     #[test]
     fn test_validate_too_many_attachments() {
         let attachments: Vec<String> = (0..MAX_ATTACHMENTS + 1)
-            .map(|i| format!("pubky://user123/pub/pubky.app/files/{:013}", i))
+            .map(|i| format!("pubky://user123/pub/mapky.app/files/{:013}", i))
             .collect();
         let post = MapkyAppPost::new(
             MapkyAppPostKind::Post,
@@ -491,7 +487,7 @@ mod tests {
     fn test_validate_invalid_place() {
         let post = MapkyAppPost {
             kind: MapkyAppPostKind::Post,
-            place: OsmRef::new(OsmElementType::Node, 0),
+            place: "https://example.com/not-osm".into(),
             content: Some("Content".into()),
             rating: None,
             attachments: None,
@@ -500,14 +496,14 @@ mod tests {
         let id = post.create_id();
         let result = post.validate(Some(&id));
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("OSM ID must be positive"));
+        assert!(result.unwrap_err().contains("OSM URL"));
     }
 
     #[test]
     fn test_try_from_valid() {
         let post_json = r#"{
             "kind": "review",
-            "place": {"osm_type": "node", "osm_id": 1573053883},
+            "place": "https://www.openstreetmap.org/node/1573053883",
             "content": "Great place!",
             "rating": 8,
             "attachments": null,
@@ -516,7 +512,7 @@ mod tests {
 
         let post = MapkyAppPost::new(
             MapkyAppPostKind::Review,
-            OsmRef::new(OsmElementType::Node, 1573053883),
+            "https://www.openstreetmap.org/node/1573053883".into(),
             Some("Great place!".into()),
             Some(8),
             None,
@@ -532,15 +528,13 @@ mod tests {
         assert_eq!(parsed.rating, Some(8));
     }
 
-    // --- New kind-specific tests ---
-
     #[test]
     fn test_validate_review_requires_rating() {
         let post = MapkyAppPost::new(
             MapkyAppPostKind::Review,
             test_place(),
             Some("Nice spot".into()),
-            None, // missing rating
+            None,
             None,
             None,
         );
@@ -556,7 +550,7 @@ mod tests {
             kind: MapkyAppPostKind::Post,
             place: test_place(),
             content: Some("Nice spot".into()),
-            rating: Some(7), // forbidden for Post
+            rating: Some(7),
             attachments: None,
             parent: None,
         };
@@ -607,6 +601,34 @@ mod tests {
             None,
             None,
             Some("pubky://user123/pub/mapky.app/posts/0034A0X7NJ52G".into()),
+        );
+        let id = post.create_id();
+        assert!(post.validate(Some(&id)).is_ok());
+    }
+
+    #[test]
+    fn test_place_accepts_way() {
+        let post = MapkyAppPost::new(
+            MapkyAppPostKind::Review,
+            "https://www.openstreetmap.org/way/987654321".into(),
+            Some("Nice street".into()),
+            Some(7),
+            None,
+            None,
+        );
+        let id = post.create_id();
+        assert!(post.validate(Some(&id)).is_ok());
+    }
+
+    #[test]
+    fn test_place_accepts_relation() {
+        let post = MapkyAppPost::new(
+            MapkyAppPostKind::Review,
+            "https://www.openstreetmap.org/relation/111111".into(),
+            Some("Great area".into()),
+            Some(9),
+            None,
+            None,
         );
         let id = post.create_id();
         assert!(post.validate(Some(&id)).is_ok());

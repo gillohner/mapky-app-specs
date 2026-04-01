@@ -1,5 +1,7 @@
-use crate::traits::{HasIdPath, HashId, TimestampId, Validatable};
+use crate::traits::{HasIdPath, TimestampId, Validatable};
 use crate::*;
+use pubky_app_specs::traits::HashId;
+use pubky_app_specs::PubkyAppTag;
 use serde_wasm_bindgen::from_value;
 use wasm_bindgen::prelude::*;
 
@@ -63,7 +65,7 @@ macro_rules! result_struct {
 }
 
 result_struct!(MapkyPostResult, post, MapkyAppPost);
-result_struct!(MapkyLocationTagResult, location_tag, MapkyAppLocationTag);
+result_struct!(MapkyTagResult, tag, PubkyAppTag);
 result_struct!(MapkyCollectionResult, collection, MapkyAppCollection);
 result_struct!(MapkyIncidentResult, incident, MapkyAppIncident);
 result_struct!(MapkyGeoCaptureResult, geo_capture, MapkyAppGeoCapture);
@@ -86,13 +88,14 @@ impl MapkySpecsBuilder {
     #[wasm_bindgen(js_name = createPost)]
     pub fn create_post(
         &self,
-        place: OsmRef,
+        kind: MapkyAppPostKind,
+        place: String,
         content: Option<String>,
         rating: Option<u8>,
         attachments: Option<Vec<String>>,
         parent: Option<String>,
     ) -> Result<MapkyPostResult, String> {
-        let post = MapkyAppPost::new(place, content, rating, attachments, parent);
+        let post = MapkyAppPost::new(kind, place, content, rating, attachments, parent);
         let post_id = post.create_id();
         post.validate(Some(&post_id))?;
 
@@ -102,25 +105,20 @@ impl MapkySpecsBuilder {
         Ok(MapkyPostResult { post, meta })
     }
 
-    #[wasm_bindgen(js_name = createLocationTag)]
-    pub fn create_location_tag(
+    /// Create a PubkyAppTag for tagging an OSM place (or any URI).
+    /// The tag is stored at `/pub/mapky.app/tags/{tag_id}` — the mapky-specific
+    /// path that triggers universal tag indexing in pubky-nexus.
+    #[wasm_bindgen(js_name = createPlaceTag)]
+    pub fn create_place_tag(
         &self,
-        place: OsmRef,
-        category: String,
+        uri: String,
         label: String,
-        rating: Option<u8>,
-    ) -> Result<MapkyLocationTagResult, String> {
-        let tag = MapkyAppLocationTag::new(place, category, label, rating);
+    ) -> Result<MapkyTagResult, String> {
+        let tag = PubkyAppTag::new(uri, label);
         let tag_id = tag.create_id();
-        tag.validate(Some(&tag_id))?;
-
-        let path = MapkyAppLocationTag::create_path(&tag_id);
+        let path = format!("/pub/mapky.app/tags/{}", tag_id);
         let meta = MapkyMeta::from_object(&tag_id, &self.pubky_id, path);
-
-        Ok(MapkyLocationTagResult {
-            location_tag: tag,
-            meta,
-        })
+        Ok(MapkyTagResult { tag, meta })
     }
 
     #[wasm_bindgen(js_name = createCollection)]
@@ -131,7 +129,7 @@ impl MapkySpecsBuilder {
         items: JsValue,
         image_uri: Option<String>,
     ) -> Result<MapkyCollectionResult, String> {
-        let items_vec: Vec<OsmRef> = from_value(items).map_err(|e| e.to_string())?;
+        let items_vec: Vec<String> = from_value(items).map_err(|e| e.to_string())?;
         let collection = MapkyAppCollection::new(name, description, items_vec, image_uri);
         let collection_id = collection.create_id();
         collection.validate(Some(&collection_id))?;
