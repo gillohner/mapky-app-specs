@@ -26,6 +26,8 @@ pub struct MapkyAppCollection {
     pub items: Vec<String>,
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
     pub image_uri: Option<String>,
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
+    pub color: Option<String>,
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
@@ -36,12 +38,14 @@ impl MapkyAppCollection {
         description: Option<String>,
         items: Vec<String>,
         image_uri: Option<String>,
+        color: Option<String>,
     ) -> Self {
         let collection = MapkyAppCollection {
             name,
             description,
             items,
             image_uri,
+            color,
         };
         collection.sanitize()
     }
@@ -90,12 +94,14 @@ impl Validatable for MapkyAppCollection {
         let description = self.description.map(|d| d.trim().to_string());
         let image_uri = self.image_uri.map(|u| sanitize_url(&u));
         let items = self.items.into_iter().map(|u| sanitize_url(&u)).collect();
+        let color = self.color.map(|c| c.trim().to_uppercase());
 
         MapkyAppCollection {
             name,
             description,
             items,
             image_uri,
+            color,
         }
     }
 
@@ -153,6 +159,19 @@ impl Validatable for MapkyAppCollection {
                 .map_err(|_| format!("Validation Error: Invalid image URI: {}", uri))?;
         }
 
+        // Validate color (optional, hex format #RRGGBB)
+        if let Some(ref color) = self.color {
+            if color.len() != 7
+                || !color.starts_with('#')
+                || !color[1..].chars().all(|c| c.is_ascii_hexdigit())
+            {
+                return Err(format!(
+                    "Validation Error: Invalid color '{}'. Expected hex format #RRGGBB",
+                    color
+                ));
+            }
+        }
+
         Ok(())
     }
 }
@@ -170,14 +189,14 @@ mod tests {
 
     #[test]
     fn test_create_id() {
-        let c = MapkyAppCollection::new("My List".into(), None, test_items(), None);
+        let c = MapkyAppCollection::new("My List".into(), None, test_items(), None, None);
         let id = c.create_id();
         assert_eq!(id.len(), 13);
     }
 
     #[test]
     fn test_create_path() {
-        let c = MapkyAppCollection::new("My List".into(), None, test_items(), None);
+        let c = MapkyAppCollection::new("My List".into(), None, test_items(), None, None);
         let id = c.create_id();
         let path = MapkyAppCollection::create_path(&id);
         assert!(path.starts_with("/pub/mapky.app/collections/"));
@@ -185,21 +204,21 @@ mod tests {
 
     #[test]
     fn test_validate_happy() {
-        let c = MapkyAppCollection::new("My List".into(), None, test_items(), None);
+        let c = MapkyAppCollection::new("My List".into(), None, test_items(), None, None);
         let id = c.create_id();
         assert!(c.validate(Some(&id)).is_ok());
     }
 
     #[test]
     fn test_validate_empty_name() {
-        let c = MapkyAppCollection::new("".into(), None, test_items(), None);
+        let c = MapkyAppCollection::new("".into(), None, test_items(), None, None);
         let id = c.create_id();
         assert!(c.validate(Some(&id)).is_err());
     }
 
     #[test]
     fn test_validate_empty_items_allowed() {
-        let c = MapkyAppCollection::new("List".into(), None, vec![], None);
+        let c = MapkyAppCollection::new("List".into(), None, vec![], None, None);
         let id = c.create_id();
         assert!(c.validate(Some(&id)).is_ok());
     }
@@ -210,7 +229,7 @@ mod tests {
             "https://www.openstreetmap.org/node/1".into(),
             "https://www.openstreetmap.org/node/1".into(),
         ];
-        let c = MapkyAppCollection::new("List".into(), None, items, None);
+        let c = MapkyAppCollection::new("List".into(), None, items, None, None);
         let id = c.create_id();
         let result = c.validate(Some(&id));
         assert!(result.is_err());
@@ -224,6 +243,7 @@ mod tests {
             None,
             test_items(),
             None,
+            None,
         );
         let id = c.create_id();
         assert!(c.validate(Some(&id)).is_err());
@@ -232,7 +252,7 @@ mod tests {
     #[test]
     fn test_validate_invalid_item() {
         let items = vec!["https://example.com/not-osm".into()];
-        let c = MapkyAppCollection::new("List".into(), None, items, None);
+        let c = MapkyAppCollection::new("List".into(), None, items, None, None);
         let id = c.create_id();
         let result = c.validate(Some(&id));
         assert!(result.is_err());
@@ -250,7 +270,7 @@ mod tests {
             ],
             "image_uri": null
         }"#;
-        let c = MapkyAppCollection::new("My Favorite Spots".into(), None, test_items(), None);
+        let c = MapkyAppCollection::new("My Favorite Spots".into(), None, test_items(), None, None);
         let id = c.create_id();
         let result = <MapkyAppCollection as Validatable>::try_from(json.as_bytes(), &id);
         assert!(result.is_ok());
@@ -263,7 +283,7 @@ mod tests {
             "https://www.openstreetmap.org/way/2".into(),
             "https://www.openstreetmap.org/relation/3".into(),
         ];
-        let c = MapkyAppCollection::new("Mixed".into(), None, items, None);
+        let c = MapkyAppCollection::new("Mixed".into(), None, items, None, None);
         let id = c.create_id();
         assert!(c.validate(Some(&id)).is_ok());
     }
