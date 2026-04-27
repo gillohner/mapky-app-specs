@@ -1,8 +1,8 @@
 use crate::{
     constants::{MAPKY_PATH, PROTOCOL, PUBLIC_PATH},
     traits::HasIdPath,
-    MapkyAppPost, MapkyAppCollection,
-    MapkyAppIncident, MapkyAppGeoCapture, MapkyAppRoute,
+    MapkyAppCollection, MapkyAppGeoCapture, MapkyAppIncident, MapkyAppPost, MapkyAppRoute,
+    MapkyAppSequence,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -46,5 +46,12 @@ pub fn mapky_geo_capture_uri_builder(author_id: String, capture_id: String) -> S
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = mapkyRouteUriBuilder))]
 pub fn mapky_route_uri_builder(author_id: String, route_id: String) -> String {
     let path = MapkyAppRoute::create_path(&route_id);
+    [PROTOCOL, &author_id, &path].concat()
+}
+
+/// Builds a Sequence URI
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = mapkySequenceUriBuilder))]
+pub fn mapky_sequence_uri_builder(author_id: String, sequence_id: String) -> String {
+    let path = MapkyAppSequence::create_path(&sequence_id);
     [PROTOCOL, &author_id, &path].concat()
 }

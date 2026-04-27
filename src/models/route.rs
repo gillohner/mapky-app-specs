@@ -1,8 +1,9 @@
 use crate::{
     common::sanitize_url,
     constants::{
-        MAX_ROUTE_CONTROL_POINTS, MAX_ROUTE_DESCRIPTION_LENGTH, MAX_ROUTE_INSTRUCTION_LENGTH,
-        MAX_ROUTE_NAME_LENGTH, MAX_ROUTE_WAYPOINTS, MAX_WAYPOINT_NAME_LENGTH, MIN_WAYPOINTS,
+        MAX_ROUTE_CONTROL_POINTS, MAX_ROUTE_COSTING_LENGTH, MAX_ROUTE_DESCRIPTION_LENGTH,
+        MAX_ROUTE_ENGINE_LENGTH, MAX_ROUTE_INSTRUCTION_LENGTH, MAX_ROUTE_NAME_LENGTH,
+        MAX_ROUTE_POLYLINE_LENGTH, MAX_ROUTE_WAYPOINTS, MAX_WAYPOINT_NAME_LENGTH, MIN_WAYPOINTS,
     },
     traits::{HasIdPath, TimestampId, Validatable},
     validation::{validate_coordinates, validate_osm_way_url},
@@ -75,6 +76,24 @@ pub struct RouteStep {
     pub waypoint_index: usize,
 }
 
+/// Snapped geometry for a route, computed by a routing engine or imported from GPX.
+/// Stored alongside the route so that viewers don't need to re-snap on every render.
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub struct RouteGeometry {
+    /// Encoded polyline (Google polyline algorithm, precision 6 for Valhalla output).
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
+    pub polyline: String,
+    /// Source engine: "valhalla" | "manual" | "gpx" | other future values.
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
+    pub engine: String,
+    /// Engine-specific costing/profile, e.g. "pedestrian", "bicycle", "auto".
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
+    pub costing: Option<String>,
+    /// Unix milliseconds when this geometry was computed.
+    pub computed_at: i64,
+}
+
 /// User-created route (hiking, cycling, etc.)
 /// URI: /pub/mapky.app/routes/:route_id
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
@@ -102,6 +121,8 @@ pub struct MapkyAppRoute {
     pub estimated_duration_s: Option<i64>,
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
     pub image_uri: Option<String>,
+    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
+    pub geometry: Option<RouteGeometry>,
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
@@ -126,6 +147,7 @@ impl MapkyAppRoute {
             elevation_loss_m: None,
             estimated_duration_s: None,
             image_uri: None,
+            geometry: None,
         };
         route.sanitize()
     }
@@ -319,6 +341,39 @@ impl Validatable for MapkyAppRoute {
         if let Some(d) = self.estimated_duration_s {
             if d < 0 {
                 return Err("Validation Error: estimated_duration_s cannot be negative".into());
+            }
+        }
+
+        // Validate geometry
+        if let Some(ref g) = self.geometry {
+            if g.polyline.is_empty() {
+                return Err("Validation Error: geometry.polyline cannot be empty".into());
+            }
+            if g.polyline.len() > MAX_ROUTE_POLYLINE_LENGTH {
+                return Err(format!(
+                    "Validation Error: geometry.polyline exceeds maximum length of {} bytes",
+                    MAX_ROUTE_POLYLINE_LENGTH
+                ));
+            }
+            if g.engine.trim().is_empty() {
+                return Err("Validation Error: geometry.engine cannot be empty".into());
+            }
+            if g.engine.chars().count() > MAX_ROUTE_ENGINE_LENGTH {
+                return Err(format!(
+                    "Validation Error: geometry.engine exceeds maximum length of {} characters",
+                    MAX_ROUTE_ENGINE_LENGTH
+                ));
+            }
+            if let Some(ref costing) = g.costing {
+                if costing.chars().count() > MAX_ROUTE_COSTING_LENGTH {
+                    return Err(format!(
+                        "Validation Error: geometry.costing exceeds maximum length of {} characters",
+                        MAX_ROUTE_COSTING_LENGTH
+                    ));
+                }
+            }
+            if g.computed_at < 0 {
+                return Err("Validation Error: geometry.computed_at cannot be negative".into());
             }
         }
 
@@ -599,6 +654,104 @@ mod tests {
         let parsed: MapkyAppRoute = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.name, "Mountain Trail");
         assert_eq!(parsed.difficulty, Some(RouteDifficulty::Difficult));
+    }
+
+    #[test]
+    fn test_geometry_roundtrip() {
+        let mut route = MapkyAppRoute::new(
+            "With Geometry".into(),
+            RouteActivityType::Cycling,
+            test_waypoints(),
+        );
+        route.geometry = Some(RouteGeometry {
+            polyline: "kpkfFcueeBgC@".into(),
+            engine: "valhalla".into(),
+            costing: Some("bicycle".into()),
+            computed_at: 1_730_000_000_000,
+        });
+        let id = route.create_id();
+        assert!(route.validate(Some(&id)).is_ok());
+
+        let json = serde_json::to_string(&route).unwrap();
+        assert!(json.contains("\"valhalla\""));
+        assert!(json.contains("\"computed_at\":1730000000000"));
+        let parsed: MapkyAppRoute = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.geometry.as_ref().unwrap().engine, "valhalla");
+        assert_eq!(
+            parsed.geometry.as_ref().unwrap().costing.as_deref(),
+            Some("bicycle")
+        );
+    }
+
+    #[test]
+    fn test_geometry_validation_empty_polyline() {
+        let mut route = MapkyAppRoute::new(
+            "Bad Geo".into(),
+            RouteActivityType::Hiking,
+            test_waypoints(),
+        );
+        route.geometry = Some(RouteGeometry {
+            polyline: String::new(),
+            engine: "valhalla".into(),
+            costing: None,
+            computed_at: 0,
+        });
+        let id = route.create_id();
+        assert!(route.validate(Some(&id)).is_err());
+    }
+
+    #[test]
+    fn test_geometry_validation_oversize_polyline() {
+        let mut route = MapkyAppRoute::new(
+            "Big Geo".into(),
+            RouteActivityType::Hiking,
+            test_waypoints(),
+        );
+        route.geometry = Some(RouteGeometry {
+            polyline: "a".repeat(MAX_ROUTE_POLYLINE_LENGTH + 1),
+            engine: "valhalla".into(),
+            costing: None,
+            computed_at: 0,
+        });
+        let id = route.create_id();
+        let err = route.validate(Some(&id)).unwrap_err();
+        assert!(err.contains("polyline"));
+    }
+
+    #[test]
+    fn test_geometry_validation_empty_engine() {
+        let mut route = MapkyAppRoute::new(
+            "No Engine".into(),
+            RouteActivityType::Hiking,
+            test_waypoints(),
+        );
+        route.geometry = Some(RouteGeometry {
+            polyline: "kpkfFcueeB".into(),
+            engine: "   ".into(),
+            costing: None,
+            computed_at: 0,
+        });
+        let id = route.create_id();
+        let err = route.validate(Some(&id)).unwrap_err();
+        assert!(err.contains("engine"));
+    }
+
+    #[test]
+    fn test_geometry_validation_negative_computed_at() {
+        let mut route = MapkyAppRoute::new(
+            "Negative Time".into(),
+            RouteActivityType::Hiking,
+            test_waypoints(),
+        );
+        route.geometry = Some(RouteGeometry {
+            polyline: "kpkfFcueeB".into(),
+            engine: "valhalla".into(),
+            costing: None,
+            computed_at: -1,
+        });
+        let id = route.create_id();
+        let err = route.validate(Some(&id)).unwrap_err();
+        assert!(err.contains("computed_at"));
     }
 
     #[test]

@@ -70,6 +70,7 @@ result_struct!(MapkyCollectionResult, collection, MapkyAppCollection);
 result_struct!(MapkyIncidentResult, incident, MapkyAppIncident);
 result_struct!(MapkyGeoCaptureResult, geo_capture, MapkyAppGeoCapture);
 result_struct!(MapkyRouteResult, route, MapkyAppRoute);
+result_struct!(MapkySequenceResult, sequence, MapkyAppSequence);
 
 #[wasm_bindgen]
 pub struct MapkySpecsBuilder {
@@ -128,9 +129,10 @@ impl MapkySpecsBuilder {
         description: Option<String>,
         items: JsValue,
         image_uri: Option<String>,
+        color: Option<String>,
     ) -> Result<MapkyCollectionResult, String> {
         let items_vec: Vec<String> = from_value(items).map_err(|e| e.to_string())?;
-        let collection = MapkyAppCollection::new(name, description, items_vec, image_uri);
+        let collection = MapkyAppCollection::new(name, description, items_vec, image_uri, color);
         let collection_id = collection.create_id();
         collection.validate(Some(&collection_id))?;
 
@@ -158,6 +160,7 @@ impl MapkySpecsBuilder {
         Ok(MapkyIncidentResult { incident, meta })
     }
 
+    #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen(js_name = createGeoCapture)]
     pub fn create_geo_capture(
         &self,
@@ -165,8 +168,22 @@ impl MapkySpecsBuilder {
         kind: GeoCaptureKind,
         lat: f64,
         lon: f64,
+        ele: Option<f64>,
+        heading: Option<f64>,
+        pitch: Option<f64>,
+        fov: Option<f64>,
+        caption: Option<String>,
+        captured_at: Option<i64>,
     ) -> Result<MapkyGeoCaptureResult, String> {
-        let capture = MapkyAppGeoCapture::new(file_uri, kind, lat, lon);
+        let mut capture = MapkyAppGeoCapture::new(file_uri, kind, lat, lon);
+        capture.ele = ele;
+        capture.heading = heading;
+        capture.pitch = pitch;
+        capture.fov = fov;
+        capture.caption = caption;
+        capture.captured_at = captured_at;
+
+        let capture = capture.sanitize();
         let capture_id = capture.create_id();
         capture.validate(Some(&capture_id))?;
 
@@ -195,5 +212,52 @@ impl MapkySpecsBuilder {
         let meta = MapkyMeta::from_object(&route_id, &self.pubky_id, path);
 
         Ok(MapkyRouteResult { route, meta })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[wasm_bindgen(js_name = createSequence)]
+    pub fn create_sequence(
+        &self,
+        kind: GeoCaptureKind,
+        captured_at_start: i64,
+        captured_at_end: i64,
+        capture_count: u32,
+        name: Option<String>,
+        description: Option<String>,
+        device: Option<String>,
+        min_lat: Option<f64>,
+        min_lon: Option<f64>,
+        max_lat: Option<f64>,
+        max_lon: Option<f64>,
+    ) -> Result<MapkySequenceResult, String> {
+        let mut sequence = MapkyAppSequence::new(
+            kind,
+            captured_at_start,
+            captured_at_end,
+            capture_count,
+        );
+        sequence.name = name;
+        sequence.description = description;
+        sequence.device = device;
+
+        if let (Some(min_lat), Some(min_lon), Some(max_lat), Some(max_lon)) =
+            (min_lat, min_lon, max_lat, max_lon)
+        {
+            sequence.bbox = Some(BoundingBox {
+                min_lat,
+                min_lon,
+                max_lat,
+                max_lon,
+            });
+        }
+
+        let sequence = sequence.sanitize();
+        let sequence_id = sequence.create_id();
+        sequence.validate(Some(&sequence_id))?;
+
+        let path = MapkyAppSequence::create_path(&sequence_id);
+        let meta = MapkyMeta::from_object(&sequence_id, &self.pubky_id, path);
+
+        Ok(MapkySequenceResult { sequence, meta })
     }
 }

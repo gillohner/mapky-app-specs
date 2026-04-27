@@ -2,7 +2,10 @@ use crate::{
     common::sanitize_url,
     constants::MAX_CAPTION_LENGTH,
     traits::{HasIdPath, TimestampId, Validatable},
-    validation::{validate_coordinates, validate_heading, validate_pubky_uri},
+    validation::{
+        validate_coordinates, validate_heading, validate_pubky_uri, validate_sequence_uri,
+        validate_timestamp_microseconds,
+    },
     MAPKY_PATH, PUBLIC_PATH,
 };
 use serde::{Deserialize, Serialize};
@@ -50,6 +53,9 @@ pub struct MapkyAppGeoCapture {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
     pub sequence_uri: Option<String>,
     pub sequence_index: Option<u32>,
+    /// Moment the media was captured (UNIX microseconds). Distinct from the
+    /// TimestampId, which reflects when the record was created/uploaded.
+    pub captured_at: Option<i64>,
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
@@ -73,6 +79,7 @@ impl MapkyAppGeoCapture {
             caption: None,
             sequence_uri: None,
             sequence_index: None,
+            captured_at: None,
         };
         capture.sanitize()
     }
@@ -182,11 +189,16 @@ impl Validatable for MapkyAppGeoCapture {
             );
         }
 
-        // Validate sequence URI if present
+        // Validate sequence URI if present — must point at a /pub/mapky.app/sequences/ resource
         if let Some(ref uri) = self.sequence_uri {
-            validate_pubky_uri(uri).map_err(|e| {
+            validate_sequence_uri(uri).map_err(|e| {
                 format!("Validation Error: Invalid sequence URI: {}", e)
             })?;
+        }
+
+        // Validate captured_at if present
+        if let Some(captured_at) = self.captured_at {
+            validate_timestamp_microseconds(captured_at, "captured_at")?;
         }
 
         Ok(())
@@ -269,7 +281,7 @@ mod tests {
         );
         // Only sequence_uri without index
         capture.sequence_uri =
-            Some("pubky://user123/pub/mapky.app/routes/0034A0X7NJ52G".into());
+            Some("pubky://user123/pub/mapky.app/sequences/0034A0X7NJ52G".into());
         let id = capture.create_id();
         let result = capture.validate(Some(&id));
         assert!(result.is_err());
@@ -285,10 +297,68 @@ mod tests {
             0.0,
         );
         capture.sequence_uri =
-            Some("pubky://user123/pub/mapky.app/routes/0034A0X7NJ52G".into());
+            Some("pubky://user123/pub/mapky.app/sequences/0034A0X7NJ52G".into());
         capture.sequence_index = Some(0);
         let id = capture.create_id();
         assert!(capture.validate(Some(&id)).is_ok());
+    }
+
+    #[test]
+    fn test_validate_sequence_uri_must_be_sequences_path() {
+        let mut capture = MapkyAppGeoCapture::new(
+            "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".into(),
+            GeoCaptureKind::Photo,
+            0.0,
+            0.0,
+        );
+        // sequence_uri pointing at a route — now rejected
+        capture.sequence_uri =
+            Some("pubky://user123/pub/mapky.app/routes/0034A0X7NJ52G".into());
+        capture.sequence_index = Some(0);
+        let id = capture.create_id();
+        let result = capture.validate(Some(&id));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("/pub/mapky.app/sequences/"));
+    }
+
+    #[test]
+    fn test_validate_captured_at_ok() {
+        let mut capture = MapkyAppGeoCapture::new(
+            "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".into(),
+            GeoCaptureKind::Photo,
+            0.0,
+            0.0,
+        );
+        capture.captured_at = Some(crate::common::timestamp());
+        let id = capture.create_id();
+        assert!(capture.validate(Some(&id)).is_ok());
+    }
+
+    #[test]
+    fn test_validate_captured_at_non_positive() {
+        let mut capture = MapkyAppGeoCapture::new(
+            "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".into(),
+            GeoCaptureKind::Photo,
+            0.0,
+            0.0,
+        );
+        capture.captured_at = Some(0);
+        let id = capture.create_id();
+        assert!(capture.validate(Some(&id)).is_err());
+    }
+
+    #[test]
+    fn test_validate_captured_at_too_far_future() {
+        let mut capture = MapkyAppGeoCapture::new(
+            "pubky://user123/pub/mapky.app/files/0034A0X7NJ52G".into(),
+            GeoCaptureKind::Photo,
+            0.0,
+            0.0,
+        );
+        // 10 days in the future
+        capture.captured_at = Some(crate::common::timestamp() + 10 * 86_400_000_000);
+        let id = capture.create_id();
+        assert!(capture.validate(Some(&id)).is_err());
     }
 
     #[test]

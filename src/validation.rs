@@ -41,6 +41,37 @@ pub fn validate_pubky_uri(uri: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Validates that a pubky:// URI points at a `/pub/mapky.app/sequences/{id}` resource.
+pub fn validate_sequence_uri(uri: &str) -> Result<(), String> {
+    validate_pubky_uri(uri)?;
+    let parsed = Url::parse(uri).unwrap();
+    if !parsed.path().contains("/pub/mapky.app/sequences/") {
+        return Err(format!(
+            "Validation Error: sequence_uri must reference a /pub/mapky.app/sequences/ resource: {}",
+            uri
+        ));
+    }
+    Ok(())
+}
+
+/// Validates a microsecond-precision UNIX timestamp. Rejects non-positive values and
+/// anything more than 1 day in the future (clock-skew tolerance).
+pub fn validate_timestamp_microseconds(ts_us: i64, field: &str) -> Result<(), String> {
+    if ts_us <= 0 {
+        return Err(format!(
+            "Validation Error: {field} must be a positive UNIX timestamp in microseconds, got {ts_us}"
+        ));
+    }
+    let now_us = crate::common::timestamp();
+    let max_future_us = now_us + 86_400_000_000; // +1 day
+    if ts_us > max_future_us {
+        return Err(format!(
+            "Validation Error: {field} {ts_us} is more than 1 day in the future"
+        ));
+    }
+    Ok(())
+}
+
 /// OSM URL host
 const OSM_HOST: &str = "www.openstreetmap.org";
 

@@ -3,12 +3,13 @@ pub mod collection;
 pub mod incident;
 pub mod geo_capture;
 pub mod route;
+pub mod sequence;
 
 use crate::traits::Validatable;
 
 use super::{
-    MapkyAppPost, MapkyAppCollection,
-    MapkyAppIncident, MapkyAppGeoCapture, MapkyAppRoute,
+    MapkyAppCollection, MapkyAppGeoCapture, MapkyAppIncident, MapkyAppPost, MapkyAppRoute,
+    MapkyAppSequence,
 };
 
 /// A unified enum wrapping all MapkyApp objects.
@@ -19,6 +20,7 @@ pub enum MapkyAppObject {
     Incident(incident::MapkyAppIncident),
     GeoCapture(geo_capture::MapkyAppGeoCapture),
     Route(route::MapkyAppRoute),
+    Sequence(sequence::MapkyAppSequence),
 }
 
 impl MapkyAppObject {
@@ -45,6 +47,10 @@ impl MapkyAppObject {
             "routes" => {
                 let obj = <MapkyAppRoute as Validatable>::try_from(blob, id)?;
                 Ok(MapkyAppObject::Route(obj))
+            }
+            "sequences" => {
+                let obj = <MapkyAppSequence as Validatable>::try_from(blob, id)?;
+                Ok(MapkyAppObject::Sequence(obj))
             }
             _ => Err(format!("Unrecognized mapky.app resource: {}", path_segment)),
         }
