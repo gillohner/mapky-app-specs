@@ -24,7 +24,7 @@ pub use models::collection::MapkyAppCollection;
 pub use models::incident::{IncidentSeverity, IncidentType, MapkyAppIncident};
 pub use models::geo_capture::{GeoCaptureKind, MapkyAppGeoCapture};
 pub use models::route::{
-    MapkyAppRoute, RouteActivityType, RouteDifficulty, RouteGeometry, RouteStep, Waypoint,
+    MapkyAppRoute, RouteActivityType, RouteGeometry, RouteStep, Waypoint,
 };
 pub use models::sequence::MapkyAppSequence;
 pub use models::MapkyAppObject;

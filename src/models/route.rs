@@ -32,16 +32,6 @@ pub enum RouteActivityType {
 }
 
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
-#[serde(rename_all = "snake_case")]
-pub enum RouteDifficulty {
-    Easy,
-    Moderate,
-    Difficult,
-    Expert,
-}
-
 /// A geographic waypoint along a route
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -106,8 +96,6 @@ pub struct MapkyAppRoute {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
     pub activity: RouteActivityType,
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
-    pub difficulty: Option<RouteDifficulty>,
-    #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
     pub waypoints: Vec<Waypoint>,
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(skip))]
     pub osm_ways: Option<Vec<String>>,
@@ -137,7 +125,6 @@ impl MapkyAppRoute {
             name,
             description: None,
             activity,
-            difficulty: None,
             waypoints,
             osm_ways: None,
             control_points: None,
@@ -645,15 +632,32 @@ mod tests {
             RouteActivityType::Hiking,
             test_waypoints(),
         );
-        route.difficulty = Some(RouteDifficulty::Difficult);
         route.distance_m = Some(12500.0);
 
         let json = serde_json::to_string(&route).unwrap();
         assert!(json.contains("\"hiking\""));
-        assert!(json.contains("\"difficult\""));
+        assert!(json.contains("\"distance_m\":12500"));
         let parsed: MapkyAppRoute = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.name, "Mountain Trail");
-        assert_eq!(parsed.difficulty, Some(RouteDifficulty::Difficult));
+        assert_eq!(parsed.distance_m, Some(12500.0));
+    }
+
+    /// Existing routes saved with `difficulty` should still deserialize
+    /// cleanly — serde drops unknown fields by default. We don't read the
+    /// value anywhere; users should re-tag with universal tags instead.
+    #[test]
+    fn test_legacy_difficulty_field_ignored() {
+        let json = r#"{
+            "name": "Legacy",
+            "activity": "hiking",
+            "difficulty": "expert",
+            "waypoints": [
+                {"lat": 47.3, "lon": 8.5},
+                {"lat": 47.4, "lon": 8.6}
+            ]
+        }"#;
+        let parsed: MapkyAppRoute = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.name, "Legacy");
     }
 
     #[test]
@@ -760,7 +764,6 @@ mod tests {
             "name": "Lake Loop",
             "description": "A nice walk around the lake",
             "activity": "hiking",
-            "difficulty": "easy",
             "waypoints": [
                 {"lat": 47.3769, "lon": 8.5417, "ele": 400.0},
                 {"lat": 47.3800, "lon": 8.5450, "ele": 420.0}
