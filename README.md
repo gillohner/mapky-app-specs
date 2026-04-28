@@ -8,15 +8,20 @@ MapKy is a decentralized social layer on OpenStreetMap using [Pubky](https://pub
 
 ## Models
 
-| Model | Path | Description |
-|---|---|---|
-| `MapkyAppPost` | `/pub/mapky.app/posts/<id>` | Reviews, questions, comments about places (anchored to OSM URL) |
-| `MapkyAppCollection` | `/pub/mapky.app/collections/<id>` | Named lists of places (OSM URLs) |
-| `MapkyAppIncident` | `/pub/mapky.app/incidents/<id>` | Waze-style crowdsourced hazard reports |
-| `MapkyAppGeoCapture` | `/pub/mapky.app/geo_captures/<id>` | Street-level media (photos, panoramas, 3D) |
-| `MapkyAppRoute` | `/pub/mapky.app/routes/<id>` | User-created hiking/cycling/driving routes |
+| Model | Path | Anchored to | Description |
+|---|---|---|---|
+| `MapkyAppPost` | `/pub/mapky.app/posts/<id>` | OSM URL | Reviews, questions, comments about places |
+| `MapkyAppCollection` | `/pub/mapky.app/collections/<id>` | `Vec<OSM URL>` | Named lists of places |
+| `MapkyAppIncident` | `/pub/mapky.app/incidents/<id>` | lat/lon | Waze-style crowdsourced hazard report |
+| `MapkyAppGeoCapture` | `/pub/mapky.app/geo_captures/<id>` | lat/lon | Street-level media (photos, panoramas, video, 3D, point cloud, audio) |
+| `MapkyAppSequence` | `/pub/mapky.app/sequences/<id>` | ordered geo-capture list | Continuous trajectory of captures (e.g. driving panorama runs) |
+| `MapkyAppRoute` | `/pub/mapky.app/routes/<id>` | `Vec<Waypoint>` + encoded polyline | User-created hiking / cycling / driving / running / walking route |
 
-Places are identified by their canonical OpenStreetMap URL (e.g. `https://www.openstreetmap.org/node/123`). Tags on places use standard `PubkyAppTag` (universal tags) stored at `/pub/mapky.app/tags/`.
+Places are identified by their canonical OpenStreetMap URL (e.g. `https://www.openstreetmap.org/node/123`). Tags on places, posts, routes, etc. use standard `PubkyAppTag` (universal tags) stored at `/pub/mapky.app/tags/` — the [mapky-nexus-plugin](https://github.com/gillohner/mapky-nexus-plugin) resolves these cross-domain so any MapKy resource is taggable.
+
+## Routes
+
+`MapkyAppRoute` carries the full trip: name, description, activity (`Walking | Running | Hiking | Cycling | Driving | Skiing | Other`), waypoints (with optional OSM anchors), an encoded polyline of the snapped path, distance / duration / elevation aggregates, and an optional cover image URI. The blob lives on the author's homeserver; the indexer mirrors a metadata + bbox subset into Neo4j for spatial discovery, and the frontend fetches the full body directly when rendering a route detail.
 
 ## Build
 
