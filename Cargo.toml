@@ -1,22 +1,27 @@
 [package]
 name = "mapky-app-specs"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2021"
-description = "Mapky Data Model Specifications"
+description = "Mapky Data Model Specifications — decentralized social layer over OpenStreetMap on Pubky"
 homepage = "https://mapky.app"
+repository = "https://github.com/gillohner/mapky-app-specs"
+documentation = "https://docs.rs/mapky-app-specs"
+readme = "README.md"
 license = "MIT"
+keywords = ["pubky", "openstreetmap", "geospatial", "decentralized", "social"]
+categories = ["data-structures", "wasm"]
 exclude = [
     ".github",
     "pkg",
     "test",
-    "build.sh"
+    "build.sh",
 ]
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-pubky-app-specs = { path = "../../pubky-app-specs" }
+pubky-app-specs = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 url = "2.5"
