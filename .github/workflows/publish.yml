@@ -104,17 +104,6 @@ jobs:
       - name: Build WASM package
         run: wasm-pack build --target bundler --release
 
-      - name: Scope npm package to @mapky org
-        # The Rust crate name stays `mapky-app-specs` (Rust crates can't
-        # be `@scope/name`), but the npm package goes under the @mapky
-        # org so all related packages share one umbrella. wasm-pack
-        # writes the unscoped name from Cargo.toml; we rewrite it post-
-        # build before publishing.
-        run: |
-          jq '.name = "@mapky/mapky-app-specs"' pkg/package.json > pkg/package.json.tmp
-          mv pkg/package.json.tmp pkg/package.json
-          cat pkg/package.json
-
       - name: Publish to npm (idempotent)
         working-directory: pkg
         env:
