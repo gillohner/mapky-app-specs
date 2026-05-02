@@ -27,7 +27,10 @@ on:
       - "v*"
 
 permissions:
-  contents: read
+  # `contents: write` is needed by the Create GitHub Release step at
+  # the end (PUT /releases). Read-only would be enough for the publish
+  # steps themselves.
+  contents: write
 
 jobs:
   publish:
