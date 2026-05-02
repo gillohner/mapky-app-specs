@@ -81,30 +81,48 @@ jobs:
       - name: Run Rust tests
         run: cargo test
 
-      - name: Publish to crates.io (skip if already there)
+      - name: Publish to crates.io (idempotent)
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
-          # Cheap existence check before burning a publish attempt.
-          if curl -sf "https://crates.io/api/v1/crates/mapky-app-specs/${{ steps.version.outputs.version }}" >/dev/null; then
-            echo "mapky-app-specs ${{ steps.version.outputs.version }} already on crates.io — skipping"
-          else
-            cargo publish
+          # Try to publish; treat "already exists" as success so re-runs of
+          # the workflow on the same tag don't fail when one side (npm) has
+          # to re-publish but crates.io is already done.
+          set +e
+          OUT=$(cargo publish 2>&1)
+          STATUS=$?
+          echo "$OUT"
+          if [ $STATUS -eq 0 ]; then
+            exit 0
           fi
+          if echo "$OUT" | grep -qE "already (exists|uploaded)"; then
+            echo "::notice::version already on crates.io — treating as success"
+            exit 0
+          fi
+          exit $STATUS
 
       - name: Build WASM package
         run: wasm-pack build --target bundler --release
 
-      - name: Publish to npm (skip if already there)
+      - name: Publish to npm (idempotent)
         working-directory: pkg
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if npm view "mapky-app-specs@${{ steps.version.outputs.version }}" version >/dev/null 2>&1; then
-            echo "mapky-app-specs ${{ steps.version.outputs.version }} already on npm — skipping"
-          else
-            npm publish --access public --tag ${{ steps.version.outputs.npm_tag }}
+          # Same approach as crates.io: try to publish, treat the
+          # "version already published" error as success.
+          set +e
+          OUT=$(npm publish --access public --tag ${{ steps.version.outputs.npm_tag }} 2>&1)
+          STATUS=$?
+          echo "$OUT"
+          if [ $STATUS -eq 0 ]; then
+            exit 0
           fi
+          if echo "$OUT" | grep -qE "(cannot publish over the previously published|EPUBLISHCONFLICT|previously published versions|You cannot publish over the previously)"; then
+            echo "::notice::version already on npm — treating as success"
+            exit 0
+          fi
+          exit $STATUS
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
