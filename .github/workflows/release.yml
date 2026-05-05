@@ -1,0 +1,86 @@
+name: CI + npm publish (WASM)
+
+# CI on every push/PR; on a published release, also build the WASM bundle
+# and publish to npm so mapky-app's `npm install mapky-app-specs@<tag>` works.
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --all-features
+      - run: cargo fmt -- --check
+      - run: cargo clippy --all-targets -- -D warnings
+
+  publish-wasm:
+    # Only run on release events, and only after the test job is green.
+    if: github.event_name == 'release'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      # Required for npm provenance attestations.
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf \
+            https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
+
+      - name: Build WASM bundle
+        # `--target bundler` matches what mapky-app's vite-plugin-wasm consumes.
+        run: wasm-pack build --target bundler --release
+
+      - name: Verify Cargo.toml version matches release tag
+        # Guards against accidentally publishing a stale version: refuse if
+        # Cargo.toml says 0.2.0-alpha.1 but the release was tagged v0.3.0.
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          # Strip leading `v` if present.
+          want="${tag#v}"
+          have=$(grep -E '^version\s*=' Cargo.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ "$want" != "$have" ]; then
+            echo "Cargo.toml version ($have) does not match release tag ($tag / $want)" >&2
+            exit 1
+          fi
+
+      - name: Setup npm auth
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Publish to npm
+        working-directory: pkg
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "NPM_TOKEN secret missing — skipping publish." >&2
+            exit 0
+          fi
+          # Treat alpha/beta tags as prereleases so they don't become @latest.
+          if [[ "${{ github.event.release.tag_name }}" == *-alpha* || \
+                "${{ github.event.release.tag_name }}" == *-beta* || \
+                "${{ github.event.release.tag_name }}" == *-rc* ]]; then
+            npm publish --access public --tag next --provenance
+          else
+            npm publish --access public --provenance
+          fi
