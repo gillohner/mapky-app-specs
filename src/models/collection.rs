@@ -142,9 +142,8 @@ impl Validatable for MapkyAppCollection {
         // Validate each item and check for duplicates
         let mut seen = HashSet::new();
         for (i, item) in self.items.iter().enumerate() {
-            validate_osm_url(item).map_err(|e| {
-                format!("Validation Error: Item at index {}: {}", i, e)
-            })?;
+            validate_osm_url(item)
+                .map_err(|e| format!("Validation Error: Item at index {}: {}", i, e))?;
             if !seen.insert(item.clone()) {
                 return Err(format!(
                     "Validation Error: Duplicate item in collection: {}",

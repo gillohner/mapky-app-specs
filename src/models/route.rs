@@ -31,7 +31,6 @@ pub enum RouteActivityType {
     Other,
 }
 
-
 /// A geographic waypoint along a route
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -116,11 +115,7 @@ pub struct MapkyAppRoute {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 impl MapkyAppRoute {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(constructor))]
-    pub fn new(
-        name: String,
-        activity: RouteActivityType,
-        waypoints: Vec<Waypoint>,
-    ) -> Self {
+    pub fn new(name: String, activity: RouteActivityType, waypoints: Vec<Waypoint>) -> Self {
         let route = MapkyAppRoute {
             name,
             description: None,
@@ -182,9 +177,9 @@ impl Validatable for MapkyAppRoute {
         let name = self.name.trim().to_string();
         let description = self.description.map(|d| d.trim().to_string());
         let image_uri = self.image_uri.map(|u| sanitize_url(&u));
-        let osm_ways = self.osm_ways.map(|ways| {
-            ways.into_iter().map(|u| sanitize_url(&u)).collect()
-        });
+        let osm_ways = self
+            .osm_ways
+            .map(|ways| ways.into_iter().map(|u| sanitize_url(&u)).collect());
 
         MapkyAppRoute {
             name,
@@ -236,9 +231,8 @@ impl Validatable for MapkyAppRoute {
         }
 
         for (i, wp) in self.waypoints.iter().enumerate() {
-            validate_coordinates(wp.lat, wp.lon).map_err(|e| {
-                format!("Validation Error: Waypoint {}: {}", i, e)
-            })?;
+            validate_coordinates(wp.lat, wp.lon)
+                .map_err(|e| format!("Validation Error: Waypoint {}: {}", i, e))?;
             if let Some(ref name) = wp.name {
                 if name.chars().count() > MAX_WAYPOINT_NAME_LENGTH {
                     return Err(format!(
@@ -264,9 +258,8 @@ impl Validatable for MapkyAppRoute {
                 ));
             }
             for (i, cp) in cps.iter().enumerate() {
-                validate_coordinates(cp.lat, cp.lon).map_err(|e| {
-                    format!("Validation Error: control_points[{}]: {}", i, e)
-                })?;
+                validate_coordinates(cp.lat, cp.lon)
+                    .map_err(|e| format!("Validation Error: control_points[{}]: {}", i, e))?;
             }
         }
 
@@ -297,9 +290,8 @@ impl Validatable for MapkyAppRoute {
         // Validate osm_ways — all must be Way URLs
         if let Some(ref ways) = self.osm_ways {
             for (i, way) in ways.iter().enumerate() {
-                validate_osm_way_url(way).map_err(|e| {
-                    format!("Validation Error: osm_ways[{}]: {}", i, e)
-                })?;
+                validate_osm_way_url(way)
+                    .map_err(|e| format!("Validation Error: osm_ways[{}]: {}", i, e))?;
             }
         }
 
@@ -416,11 +408,7 @@ mod tests {
 
     #[test]
     fn test_validate_empty_name() {
-        let route = MapkyAppRoute::new(
-            "".into(),
-            RouteActivityType::Hiking,
-            test_waypoints(),
-        );
+        let route = MapkyAppRoute::new("".into(), RouteActivityType::Hiking, test_waypoints());
         let id = route.create_id();
         assert!(route.validate(Some(&id)).is_err());
     }
@@ -457,9 +445,7 @@ mod tests {
             RouteActivityType::Hiking,
             test_waypoints(),
         );
-        route.osm_ways = Some(vec![
-            "https://www.openstreetmap.org/node/123".into(),
-        ]);
+        route.osm_ways = Some(vec!["https://www.openstreetmap.org/node/123".into()]);
         let id = route.create_id();
         let result = route.validate(Some(&id));
         assert!(result.is_err());
@@ -483,11 +469,8 @@ mod tests {
 
     #[test]
     fn test_validate_negative_distance() {
-        let mut route = MapkyAppRoute::new(
-            "Route".into(),
-            RouteActivityType::Hiking,
-            test_waypoints(),
-        );
+        let mut route =
+            MapkyAppRoute::new("Route".into(), RouteActivityType::Hiking, test_waypoints());
         route.distance_m = Some(-1.0);
         let id = route.create_id();
         assert!(route.validate(Some(&id)).is_err());
@@ -521,11 +504,8 @@ mod tests {
 
     #[test]
     fn test_validate_control_points() {
-        let mut route = MapkyAppRoute::new(
-            "Route".into(),
-            RouteActivityType::Hiking,
-            test_waypoints(),
-        );
+        let mut route =
+            MapkyAppRoute::new("Route".into(), RouteActivityType::Hiking, test_waypoints());
         route.control_points = Some(vec![
             Waypoint::new(47.0, 8.0, None),
             Waypoint::new(47.1, 8.1, None),
@@ -536,11 +516,8 @@ mod tests {
 
     #[test]
     fn test_validate_control_points_too_few() {
-        let mut route = MapkyAppRoute::new(
-            "Route".into(),
-            RouteActivityType::Hiking,
-            test_waypoints(),
-        );
+        let mut route =
+            MapkyAppRoute::new("Route".into(), RouteActivityType::Hiking, test_waypoints());
         route.control_points = Some(vec![Waypoint::new(47.0, 8.0, None)]);
         let id = route.create_id();
         assert!(route.validate(Some(&id)).is_err());
@@ -548,11 +525,8 @@ mod tests {
 
     #[test]
     fn test_validate_steps() {
-        let mut route = MapkyAppRoute::new(
-            "Route".into(),
-            RouteActivityType::Hiking,
-            test_waypoints(),
-        );
+        let mut route =
+            MapkyAppRoute::new("Route".into(), RouteActivityType::Hiking, test_waypoints());
         route.steps = Some(vec![
             RouteStep {
                 instruction: "Head north".into(),
@@ -571,11 +545,8 @@ mod tests {
 
     #[test]
     fn test_validate_step_waypoint_index_out_of_bounds() {
-        let mut route = MapkyAppRoute::new(
-            "Route".into(),
-            RouteActivityType::Hiking,
-            test_waypoints(),
-        );
+        let mut route =
+            MapkyAppRoute::new("Route".into(), RouteActivityType::Hiking, test_waypoints());
         route.steps = Some(vec![RouteStep {
             instruction: "Go".into(),
             distance_m: 10.0,
@@ -589,11 +560,8 @@ mod tests {
 
     #[test]
     fn test_validate_step_negative_distance() {
-        let mut route = MapkyAppRoute::new(
-            "Route".into(),
-            RouteActivityType::Hiking,
-            test_waypoints(),
-        );
+        let mut route =
+            MapkyAppRoute::new("Route".into(), RouteActivityType::Hiking, test_waypoints());
         route.steps = Some(vec![RouteStep {
             instruction: "Go".into(),
             distance_m: -5.0,
@@ -615,11 +583,7 @@ mod tests {
             RouteActivityType::Other,
         ];
         for activity in types {
-            let route = MapkyAppRoute::new(
-                "Test".into(),
-                activity,
-                test_waypoints(),
-            );
+            let route = MapkyAppRoute::new("Test".into(), activity, test_waypoints());
             let id = route.create_id();
             assert!(route.validate(Some(&id)).is_ok());
         }

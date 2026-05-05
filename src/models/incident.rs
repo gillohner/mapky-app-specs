@@ -1,6 +1,8 @@
 use crate::{
     common::{sanitize_url, timestamp},
-    constants::{MAX_ATTACHMENT_URL_LENGTH, MAX_INCIDENT_ATTACHMENTS, MAX_INCIDENT_DESCRIPTION_LENGTH},
+    constants::{
+        MAX_ATTACHMENT_URL_LENGTH, MAX_INCIDENT_ATTACHMENTS, MAX_INCIDENT_DESCRIPTION_LENGTH,
+    },
     traits::{HasIdPath, TimestampId, Validatable},
     validation::{validate_coordinates, validate_heading, validate_pubky_uri},
     MAPKY_PATH, PUBLIC_PATH,
@@ -29,7 +31,6 @@ pub enum IncidentType {
     Other,
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 #[serde(rename_all = "snake_case")]
@@ -40,7 +41,6 @@ pub enum IncidentSeverity {
     Medium,
     High,
 }
-
 
 /// Waze-style crowdsourced incident report, coordinate-anchored.
 /// URI: /pub/mapky.app/incidents/:incident_id
@@ -118,9 +118,9 @@ impl HasIdPath for MapkyAppIncident {
 impl Validatable for MapkyAppIncident {
     fn sanitize(self) -> Self {
         let description = self.description.map(|d| d.trim().to_string());
-        let attachments = self.attachments.map(|urls| {
-            urls.into_iter().map(|u| sanitize_url(&u)).collect()
-        });
+        let attachments = self
+            .attachments
+            .map(|urls| urls.into_iter().map(|u| sanitize_url(&u)).collect());
 
         MapkyAppIncident {
             description,
@@ -153,9 +153,7 @@ impl Validatable for MapkyAppIncident {
         if let Some(expires_at) = self.expires_at {
             let now = timestamp();
             if expires_at <= now {
-                return Err(
-                    "Validation Error: expires_at must be in the future".into(),
-                );
+                return Err("Validation Error: expires_at must be in the future".into());
             }
         }
 
@@ -173,9 +171,8 @@ impl Validatable for MapkyAppIncident {
                         i
                     ));
                 }
-                validate_pubky_uri(url).map_err(|e| {
-                    format!("Validation Error: Attachment at index {}: {}", i, e)
-                })?;
+                validate_pubky_uri(url)
+                    .map_err(|e| format!("Validation Error: Attachment at index {}: {}", i, e))?;
             }
         }
 
@@ -201,12 +198,7 @@ mod tests {
 
     #[test]
     fn test_create_path() {
-        let incident = MapkyAppIncident::new(
-            IncidentType::Hazard,
-            IncidentSeverity::Low,
-            0.0,
-            0.0,
-        );
+        let incident = MapkyAppIncident::new(IncidentType::Hazard, IncidentSeverity::Low, 0.0, 0.0);
         let id = incident.create_id();
         let path = MapkyAppIncident::create_path(&id);
         assert!(path.starts_with("/pub/mapky.app/incidents/"));
@@ -226,36 +218,24 @@ mod tests {
 
     #[test]
     fn test_validate_invalid_lat() {
-        let incident = MapkyAppIncident::new(
-            IncidentType::Accident,
-            IncidentSeverity::High,
-            91.0,
-            0.0,
-        );
+        let incident =
+            MapkyAppIncident::new(IncidentType::Accident, IncidentSeverity::High, 91.0, 0.0);
         let id = incident.create_id();
         assert!(incident.validate(Some(&id)).is_err());
     }
 
     #[test]
     fn test_validate_invalid_lon() {
-        let incident = MapkyAppIncident::new(
-            IncidentType::Accident,
-            IncidentSeverity::High,
-            0.0,
-            181.0,
-        );
+        let incident =
+            MapkyAppIncident::new(IncidentType::Accident, IncidentSeverity::High, 0.0, 181.0);
         let id = incident.create_id();
         assert!(incident.validate(Some(&id)).is_err());
     }
 
     #[test]
     fn test_validate_invalid_heading() {
-        let mut incident = MapkyAppIncident::new(
-            IncidentType::Accident,
-            IncidentSeverity::High,
-            0.0,
-            0.0,
-        );
+        let mut incident =
+            MapkyAppIncident::new(IncidentType::Accident, IncidentSeverity::High, 0.0, 0.0);
         incident.heading = Some(361.0);
         let id = incident.create_id();
         assert!(incident.validate(Some(&id)).is_err());
@@ -299,27 +279,21 @@ mod tests {
 
     #[test]
     fn test_validate_expires_at_in_past() {
-        let mut incident = MapkyAppIncident::new(
-            IncidentType::Hazard,
-            IncidentSeverity::Low,
-            0.0,
-            0.0,
-        );
+        let mut incident =
+            MapkyAppIncident::new(IncidentType::Hazard, IncidentSeverity::Low, 0.0, 0.0);
         incident.expires_at = Some(1_000_000); // way in the past (microseconds)
         let id = incident.create_id();
         let result = incident.validate(Some(&id));
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("expires_at must be in the future"));
+        assert!(result
+            .unwrap_err()
+            .contains("expires_at must be in the future"));
     }
 
     #[test]
     fn test_validate_expires_at_in_future() {
-        let mut incident = MapkyAppIncident::new(
-            IncidentType::Hazard,
-            IncidentSeverity::Low,
-            0.0,
-            0.0,
-        );
+        let mut incident =
+            MapkyAppIncident::new(IncidentType::Hazard, IncidentSeverity::Low, 0.0, 0.0);
         // Set to far in the future (year ~2100 in microseconds)
         incident.expires_at = Some(4_102_444_800_000_000);
         let id = incident.create_id();

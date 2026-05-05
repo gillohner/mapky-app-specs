@@ -30,8 +30,8 @@ pub fn validate_heading(heading: f64) -> Result<(), String> {
 
 /// Validates a pubky:// URI
 pub fn validate_pubky_uri(uri: &str) -> Result<(), String> {
-    let parsed = Url::parse(uri)
-        .map_err(|_| format!("Validation Error: Invalid URI format: {}", uri))?;
+    let parsed =
+        Url::parse(uri).map_err(|_| format!("Validation Error: Invalid URI format: {}", uri))?;
     if parsed.scheme() != "pubky" {
         return Err(format!(
             "Validation Error: URI must use pubky:// protocol: {}",
@@ -80,12 +80,10 @@ const OSM_ELEMENT_TYPES: [&str; 3] = ["node", "way", "relation"];
 
 /// Validates an OSM URL: https://www.openstreetmap.org/{node|way|relation}/{positive_id}
 pub fn validate_osm_url(url: &str) -> Result<(), String> {
-    let parsed = Url::parse(url)
-        .map_err(|e| format!("Validation Error: Invalid OSM URL: {}", e))?;
+    let parsed =
+        Url::parse(url).map_err(|e| format!("Validation Error: Invalid OSM URL: {}", e))?;
     if parsed.scheme() != "https" || parsed.host_str() != Some(OSM_HOST) {
-        return Err(
-            "Validation Error: OSM URL must be https://www.openstreetmap.org/...".into(),
-        );
+        return Err("Validation Error: OSM URL must be https://www.openstreetmap.org/...".into());
     }
     let segments: Vec<&str> = parsed.path().trim_start_matches('/').split('/').collect();
     if segments.len() != 2 {

@@ -188,7 +188,8 @@ mod tests {
 
     #[test]
     fn test_new() {
-        let review = MapkyAppReview::new(test_place(), 8, Some("This is a test review".into()), None);
+        let review =
+            MapkyAppReview::new(test_place(), 8, Some("This is a test review".into()), None);
         assert_eq!(review.rating, 8);
         assert_eq!(review.content.unwrap(), "This is a test review");
         assert!(review.attachments.is_none());
@@ -306,9 +307,9 @@ mod tests {
             "attachments": null
         }"#;
 
-        let id = MapkyAppReview::new(test_place(), 8, Some("Great place!".into()), None).create_id();
-        let parsed =
-            <MapkyAppReview as Validatable>::try_from(json.as_bytes(), &id).unwrap();
+        let id =
+            MapkyAppReview::new(test_place(), 8, Some("Great place!".into()), None).create_id();
+        let parsed = <MapkyAppReview as Validatable>::try_from(json.as_bytes(), &id).unwrap();
         assert_eq!(parsed.rating, 8);
         assert_eq!(parsed.content.unwrap(), "Great place!");
     }

@@ -32,7 +32,6 @@ pub enum GeoCaptureKind {
     Other,
 }
 
-
 /// Geo-located media capture (street-level imagery, panoramas, 3D models, etc.)
 /// URI: /pub/mapky.app/geo_captures/:capture_id
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
@@ -61,12 +60,7 @@ pub struct MapkyAppGeoCapture {
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen)]
 impl MapkyAppGeoCapture {
     #[cfg_attr(target_arch = "wasm32", wasm_bindgen(constructor))]
-    pub fn new(
-        file_uri: String,
-        kind: GeoCaptureKind,
-        lat: f64,
-        lon: f64,
-    ) -> Self {
+    pub fn new(file_uri: String, kind: GeoCaptureKind, lat: f64, lon: f64) -> Self {
         let capture = MapkyAppGeoCapture {
             file_uri,
             kind,
@@ -191,9 +185,8 @@ impl Validatable for MapkyAppGeoCapture {
 
         // Validate sequence URI if present — must point at a /pub/mapky.app/sequences/ resource
         if let Some(ref uri) = self.sequence_uri {
-            validate_sequence_uri(uri).map_err(|e| {
-                format!("Validation Error: Invalid sequence URI: {}", e)
-            })?;
+            validate_sequence_uri(uri)
+                .map_err(|e| format!("Validation Error: Invalid sequence URI: {}", e))?;
         }
 
         // Validate captured_at if present
@@ -280,12 +273,13 @@ mod tests {
             0.0,
         );
         // Only sequence_uri without index
-        capture.sequence_uri =
-            Some("pubky://user123/pub/mapky.app/sequences/0034A0X7NJ52G".into());
+        capture.sequence_uri = Some("pubky://user123/pub/mapky.app/sequences/0034A0X7NJ52G".into());
         let id = capture.create_id();
         let result = capture.validate(Some(&id));
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("sequence_uri and sequence_index"));
+        assert!(result
+            .unwrap_err()
+            .contains("sequence_uri and sequence_index"));
     }
 
     #[test]
@@ -296,8 +290,7 @@ mod tests {
             0.0,
             0.0,
         );
-        capture.sequence_uri =
-            Some("pubky://user123/pub/mapky.app/sequences/0034A0X7NJ52G".into());
+        capture.sequence_uri = Some("pubky://user123/pub/mapky.app/sequences/0034A0X7NJ52G".into());
         capture.sequence_index = Some(0);
         let id = capture.create_id();
         assert!(capture.validate(Some(&id)).is_ok());
@@ -312,8 +305,7 @@ mod tests {
             0.0,
         );
         // sequence_uri pointing at a route — now rejected
-        capture.sequence_uri =
-            Some("pubky://user123/pub/mapky.app/routes/0034A0X7NJ52G".into());
+        capture.sequence_uri = Some("pubky://user123/pub/mapky.app/routes/0034A0X7NJ52G".into());
         capture.sequence_index = Some(0);
         let id = capture.create_id();
         let result = capture.validate(Some(&id));

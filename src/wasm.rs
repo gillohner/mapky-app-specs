@@ -138,11 +138,7 @@ impl MapkySpecsBuilder {
     /// The tag is stored at `/pub/mapky.app/tags/{tag_id}` — the mapky-specific
     /// path that triggers universal tag indexing in pubky-nexus.
     #[wasm_bindgen(js_name = createPlaceTag)]
-    pub fn create_place_tag(
-        &self,
-        uri: String,
-        label: String,
-    ) -> Result<MapkyTagResult, String> {
+    pub fn create_place_tag(&self, uri: String, label: String) -> Result<MapkyTagResult, String> {
         let tag = PubkyAppTag::new(uri, label);
         let tag_id = tag.create_id();
         let path = format!("/pub/mapky.app/tags/{}", tag_id);
@@ -258,12 +254,8 @@ impl MapkySpecsBuilder {
         max_lat: Option<f64>,
         max_lon: Option<f64>,
     ) -> Result<MapkySequenceResult, String> {
-        let mut sequence = MapkyAppSequence::new(
-            kind,
-            captured_at_start,
-            captured_at_end,
-            capture_count,
-        );
+        let mut sequence =
+            MapkyAppSequence::new(kind, captured_at_start, captured_at_end, capture_count);
         sequence.name = name;
         sequence.description = description;
         sequence.device = device;
