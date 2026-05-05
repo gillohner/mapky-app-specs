@@ -1,7 +1,7 @@
 use crate::{
     constants::{MAPKY_PATH, PROTOCOL, PUBLIC_PATH},
     traits::HasIdPath,
-    MapkyAppCollection, MapkyAppGeoCapture, MapkyAppIncident, MapkyAppPost, MapkyAppRoute,
+    MapkyAppCollection, MapkyAppGeoCapture, MapkyAppIncident, MapkyAppReview, MapkyAppRoute,
     MapkyAppSequence,
 };
 
@@ -14,11 +14,21 @@ pub fn mapky_base_uri_builder(user_id: String) -> String {
     format!("{}{}{}{}", PROTOCOL, user_id, PUBLIC_PATH, MAPKY_PATH)
 }
 
-/// Builds a Post URI: "pubky://<author_id>/pub/mapky.app/posts/<post_id>"
+/// Builds a Review URI: "pubky://<author_id>/pub/mapky.app/reviews/<review_id>"
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = mapkyReviewUriBuilder))]
+pub fn mapky_review_uri_builder(author_id: String, review_id: String) -> String {
+    let path = MapkyAppReview::create_path(&review_id);
+    [PROTOCOL, &author_id, &path].concat()
+}
+
+/// Builds a Post URI for a `PubkyAppPost` stored under the MapKy namespace:
+/// "pubky://<author_id>/pub/mapky.app/posts/<post_id>"
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = mapkyPostUriBuilder))]
 pub fn mapky_post_uri_builder(author_id: String, post_id: String) -> String {
-    let path = MapkyAppPost::create_path(&post_id);
-    [PROTOCOL, &author_id, &path].concat()
+    format!(
+        "{}{}{}{}posts/{}",
+        PROTOCOL, author_id, PUBLIC_PATH, MAPKY_PATH, post_id
+    )
 }
 
 /// Builds a Collection URI

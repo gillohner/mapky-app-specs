@@ -64,7 +64,8 @@ macro_rules! result_struct {
     };
 }
 
-result_struct!(MapkyPostResult, post, MapkyAppPost);
+result_struct!(MapkyReviewResult, review, MapkyAppReview);
+result_struct!(MapkyPostResult, post, PubkyAppPost);
 result_struct!(MapkyTagResult, tag, PubkyAppTag);
 result_struct!(MapkyCollectionResult, collection, MapkyAppCollection);
 result_struct!(MapkyIncidentResult, incident, MapkyAppIncident);
@@ -86,21 +87,48 @@ impl MapkySpecsBuilder {
         Ok(Self { pubky_id })
     }
 
-    #[wasm_bindgen(js_name = createPost)]
-    pub fn create_post(
+    /// Create a `MapkyAppReview` (rating-mandatory, place-anchored, never a reply).
+    /// Stored at `/pub/mapky.app/reviews/{id}`.
+    #[wasm_bindgen(js_name = createReview)]
+    pub fn create_review(
         &self,
-        kind: MapkyAppPostKind,
         place: String,
+        rating: u8,
         content: Option<String>,
-        rating: Option<u8>,
         attachments: Option<Vec<String>>,
+    ) -> Result<MapkyReviewResult, String> {
+        let review = MapkyAppReview::new(place, rating, content, attachments);
+        let review_id = review.create_id();
+        review.validate(Some(&review_id))?;
+
+        let path = MapkyAppReview::create_path(&review_id);
+        let meta = MapkyMeta::from_object(&review_id, &self.pubky_id, path);
+
+        Ok(MapkyReviewResult { review, meta })
+    }
+
+    /// Create a `PubkyAppPost` (generic comment / threaded reply) stored under
+    /// the MapKy namespace at `/pub/mapky.app/posts/{id}`. The `parent` field
+    /// can target any MapKy resource (review, route, collection, geo-capture,
+    /// sequence, incident, or another mapky-namespaced post). Cross-domain
+    /// parents (e.g. core social posts) are accepted but only edge-indexed
+    /// when the target is a MapKy resource.
+    #[wasm_bindgen(js_name = createMapkyPost)]
+    pub fn create_mapky_post(
+        &self,
+        content: String,
+        kind: PubkyAppPostKind,
         parent: Option<String>,
+        embed: Option<PubkyAppPostEmbed>,
+        attachments: Option<Vec<String>>,
     ) -> Result<MapkyPostResult, String> {
-        let post = MapkyAppPost::new(kind, place, content, rating, attachments, parent);
+        let post = PubkyAppPost::new(content, kind, parent, embed, attachments);
         let post_id = post.create_id();
         post.validate(Some(&post_id))?;
 
-        let path = MapkyAppPost::create_path(&post_id);
+        // Override the default `/pub/pubky.app/posts/{id}` path with the
+        // mapky-namespaced equivalent so the plugin's namespace claim picks it up.
+        let path = format!("{}{}posts/{}", PUBLIC_PATH, MAPKY_PATH, post_id);
         let meta = MapkyMeta::from_object(&post_id, &self.pubky_id, path);
 
         Ok(MapkyPostResult { post, meta })

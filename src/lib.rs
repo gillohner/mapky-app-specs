@@ -19,7 +19,7 @@ pub use constants::{
 };
 
 // Re-export domain types
-pub use models::post::{MapkyAppPost, MapkyAppPostKind};
+pub use models::review::MapkyAppReview;
 pub use models::collection::MapkyAppCollection;
 pub use models::incident::{IncidentSeverity, IncidentType, MapkyAppIncident};
 pub use models::geo_capture::{GeoCaptureKind, MapkyAppGeoCapture};
@@ -30,7 +30,10 @@ pub use models::sequence::MapkyAppSequence;
 pub use models::MapkyAppObject;
 
 // Re-export from pubky-app-specs
-pub use pubky_app_specs::PubkyId;
+// PubkyAppPost / PubkyAppPostKind / PubkyAppPostEmbed are reused as-is for
+// generic comments stored at /pub/mapky.app/posts/{id} (cross-namespace pattern,
+// like universal tags).
+pub use pubky_app_specs::{PubkyAppPost, PubkyAppPostEmbed, PubkyAppPostKind, PubkyId};
 
 // Re-export utils
 pub use utils::*;
