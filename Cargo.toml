@@ -1,6 +1,6 @@
 [package]
 name = "mapky-app-specs"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 edition = "2021"
 description = "Mapky Data Model Specifications — decentralized social layer over OpenStreetMap on Pubky"
 homepage = "https://mapky.app"
