@@ -1,8 +1,7 @@
 use crate::{
     constants::{MAPKY_PATH, PROTOCOL, PUBLIC_PATH},
     traits::HasIdPath,
-    MapkyAppCollection, MapkyAppGeoCapture, MapkyAppIncident, MapkyAppReview, MapkyAppRoute,
-    MapkyAppSequence,
+    MapkyAppGeoCapture, MapkyAppIncident, MapkyAppReview, MapkyAppRoute, MapkyAppSequence,
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -34,8 +33,7 @@ pub fn mapky_post_uri_builder(author_id: String, post_id: String) -> String {
 /// Builds a Collection URI
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = mapkyCollectionUriBuilder))]
 pub fn mapky_collection_uri_builder(author_id: String, collection_id: String) -> String {
-    let path = MapkyAppCollection::create_path(&collection_id);
-    [PROTOCOL, &author_id, &path].concat()
+    mapky_post_uri_builder(author_id, collection_id)
 }
 
 /// Builds an Incident URI

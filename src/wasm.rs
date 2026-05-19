@@ -67,7 +67,6 @@ macro_rules! result_struct {
 result_struct!(MapkyReviewResult, review, MapkyAppReview);
 result_struct!(MapkyPostResult, post, PubkyAppPost);
 result_struct!(MapkyTagResult, tag, PubkyAppTag);
-result_struct!(MapkyCollectionResult, collection, MapkyAppCollection);
 result_struct!(MapkyIncidentResult, incident, MapkyAppIncident);
 result_struct!(MapkyGeoCaptureResult, geo_capture, MapkyAppGeoCapture);
 result_struct!(MapkyRouteResult, route, MapkyAppRoute);
@@ -152,18 +151,24 @@ impl MapkySpecsBuilder {
         name: String,
         description: Option<String>,
         items: JsValue,
-        image_uri: Option<String>,
-        color: Option<String>,
-    ) -> Result<MapkyCollectionResult, String> {
+    ) -> Result<MapkyPostResult, String> {
         let items_vec: Vec<String> = from_value(items).map_err(|e| e.to_string())?;
-        let collection = MapkyAppCollection::new(name, description, items_vec, image_uri, color);
-        let collection_id = collection.create_id();
-        collection.validate(Some(&collection_id))?;
+        let envelope = PubkyAppCollectionContent {
+            name,
+            description,
+            items: items_vec,
+        };
+        let content = serde_json::to_string(&envelope)
+            .map_err(|e| format!("Failed to serialize collection envelope: {e}"))?;
 
-        let path = MapkyAppCollection::create_path(&collection_id);
-        let meta = MapkyMeta::from_object(&collection_id, &self.pubky_id, path);
+        let post = PubkyAppPost::new(content, PubkyAppPostKind::Collection, None, None, None);
+        let post_id = post.create_id();
+        post.validate(Some(&post_id))?;
 
-        Ok(MapkyCollectionResult { collection, meta })
+        let path = format!("{}{}posts/{}", PUBLIC_PATH, MAPKY_PATH, post_id);
+        let meta = MapkyMeta::from_object(&post_id, &self.pubky_id, path);
+
+        Ok(MapkyPostResult { post, meta })
     }
 
     #[wasm_bindgen(js_name = createIncident)]

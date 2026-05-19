@@ -1,4 +1,3 @@
-pub mod collection;
 pub mod geo_capture;
 pub mod incident;
 pub mod review;
@@ -7,16 +6,12 @@ pub mod sequence;
 
 use crate::traits::Validatable;
 
-use super::{
-    MapkyAppCollection, MapkyAppGeoCapture, MapkyAppIncident, MapkyAppReview, MapkyAppRoute,
-    MapkyAppSequence,
-};
+use super::{MapkyAppGeoCapture, MapkyAppIncident, MapkyAppReview, MapkyAppRoute, MapkyAppSequence};
 
 /// A unified enum wrapping all MapkyApp objects.
 #[derive(Debug, Clone)]
 pub enum MapkyAppObject {
     Review(review::MapkyAppReview),
-    Collection(collection::MapkyAppCollection),
     Incident(incident::MapkyAppIncident),
     GeoCapture(geo_capture::MapkyAppGeoCapture),
     Route(route::MapkyAppRoute),
@@ -25,18 +20,15 @@ pub enum MapkyAppObject {
 
 impl MapkyAppObject {
     /// Parse a blob into a MapkyAppObject based on the path segment.
-    /// path_segment should be e.g. "reviews", "collections", etc.
-    /// Note: comments at "posts/" use `pubky_app_specs::PubkyAppPost` directly
+    /// path_segment should be e.g. "reviews", "incidents", etc.
+    /// Note: posts at "posts/" (including collection-kind posts) use
+    /// `pubky_app_specs::PubkyAppPost` directly
     /// and are not represented in this enum.
     pub fn from_path(path_segment: &str, blob: &[u8], id: &str) -> Result<Self, String> {
         match path_segment {
             "reviews" => {
                 let obj = <MapkyAppReview as Validatable>::try_from(blob, id)?;
                 Ok(MapkyAppObject::Review(obj))
-            }
-            "collections" => {
-                let obj = <MapkyAppCollection as Validatable>::try_from(blob, id)?;
-                Ok(MapkyAppObject::Collection(obj))
             }
             "incidents" => {
                 let obj = <MapkyAppIncident as Validatable>::try_from(blob, id)?;

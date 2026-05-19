@@ -8,10 +8,6 @@ pub const MAX_CONTENT_LENGTH: usize = 5000;
 pub const MAX_ATTACHMENTS: usize = 20;
 pub const MAX_ATTACHMENT_URL_LENGTH: usize = 300;
 
-// Collection limits
-pub const MAX_COLLECTION_NAME_LENGTH: usize = 100;
-pub const MAX_COLLECTION_ITEMS: usize = 500;
-
 // Description limits (shared)
 pub const MAX_DESCRIPTION_LENGTH: usize = 2000;
 
