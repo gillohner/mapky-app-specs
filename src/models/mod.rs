@@ -6,7 +6,9 @@ pub mod sequence;
 
 use crate::traits::Validatable;
 
-use super::{MapkyAppGeoCapture, MapkyAppIncident, MapkyAppReview, MapkyAppRoute, MapkyAppSequence};
+use super::{
+    MapkyAppGeoCapture, MapkyAppIncident, MapkyAppReview, MapkyAppRoute, MapkyAppSequence,
+};
 
 /// A unified enum wrapping all MapkyApp objects.
 #[derive(Debug, Clone)]
