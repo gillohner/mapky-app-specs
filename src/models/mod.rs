@@ -23,8 +23,7 @@ pub enum MapkyAppObject {
 impl MapkyAppObject {
     /// Parse a blob into a MapkyAppObject based on the path segment.
     /// path_segment should be e.g. "reviews", "incidents", etc.
-    /// Note: posts at "posts/" (including collection-kind posts) use
-    /// `pubky_app_specs::PubkyAppPost` directly
+    /// Note: posts at "posts/" use `pubky_app_specs::PubkyAppPost` directly
     /// and are not represented in this enum.
     pub fn from_path(path_segment: &str, blob: &[u8], id: &str) -> Result<Self, String> {
         match path_segment {

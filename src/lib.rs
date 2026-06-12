@@ -29,9 +29,7 @@ pub use models::MapkyAppObject;
 // PubkyAppPost / PubkyAppPostKind / PubkyAppPostEmbed are reused as-is for
 // generic comments stored at /pub/mapky.app/posts/{id} (cross-namespace pattern,
 // like universal tags).
-pub use pubky_app_specs::{
-    PubkyAppCollectionContent, PubkyAppPost, PubkyAppPostEmbed, PubkyAppPostKind, PubkyId,
-};
+pub use pubky_app_specs::{PubkyAppPost, PubkyAppPostEmbed, PubkyAppPostKind, PubkyId};
 
 // Re-export utils
 pub use utils::*;

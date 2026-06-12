@@ -2,7 +2,6 @@ use crate::traits::{HasIdPath, TimestampId, Validatable};
 use crate::*;
 use pubky_app_specs::traits::HashId;
 use pubky_app_specs::PubkyAppTag;
-use serde_wasm_bindgen::from_value;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -108,10 +107,10 @@ impl MapkySpecsBuilder {
 
     /// Create a `PubkyAppPost` (generic comment / threaded reply) stored under
     /// the MapKy namespace at `/pub/mapky.app/posts/{id}`. The `parent` field
-    /// can target any MapKy resource (review, route, collection, geo-capture,
-    /// sequence, incident, or another mapky-namespaced post). Cross-domain
-    /// parents (e.g. core social posts) are accepted but only edge-indexed
-    /// when the target is a MapKy resource.
+    /// can target any MapKy resource (review, route, geo-capture, sequence,
+    /// incident, or another mapky-namespaced post). Cross-domain parents
+    /// (e.g. core social posts) are accepted but only edge-indexed when the
+    /// target is a MapKy resource.
     #[wasm_bindgen(js_name = createMapkyPost)]
     pub fn create_mapky_post(
         &self,
@@ -143,32 +142,6 @@ impl MapkySpecsBuilder {
         let path = format!("/pub/mapky.app/tags/{}", tag_id);
         let meta = MapkyMeta::from_object(&tag_id, &self.pubky_id, path);
         Ok(MapkyTagResult { tag, meta })
-    }
-
-    #[wasm_bindgen(js_name = createCollection)]
-    pub fn create_collection(
-        &self,
-        name: String,
-        description: Option<String>,
-        items: JsValue,
-    ) -> Result<MapkyPostResult, String> {
-        let items_vec: Vec<String> = from_value(items).map_err(|e| e.to_string())?;
-        let envelope = PubkyAppCollectionContent {
-            name,
-            description,
-            items: items_vec,
-        };
-        let content = serde_json::to_string(&envelope)
-            .map_err(|e| format!("Failed to serialize collection envelope: {e}"))?;
-
-        let post = PubkyAppPost::new(content, PubkyAppPostKind::Collection, None, None, None);
-        let post_id = post.create_id();
-        post.validate(Some(&post_id))?;
-
-        let path = format!("{}{}posts/{}", PUBLIC_PATH, MAPKY_PATH, post_id);
-        let meta = MapkyMeta::from_object(&post_id, &self.pubky_id, path);
-
-        Ok(MapkyPostResult { post, meta })
     }
 
     #[wasm_bindgen(js_name = createIncident)]
