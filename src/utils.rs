@@ -30,12 +30,6 @@ pub fn mapky_post_uri_builder(author_id: String, post_id: String) -> String {
     )
 }
 
-/// Builds a Collection URI
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = mapkyCollectionUriBuilder))]
-pub fn mapky_collection_uri_builder(author_id: String, collection_id: String) -> String {
-    mapky_post_uri_builder(author_id, collection_id)
-}
-
 /// Builds an Incident URI
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(js_name = mapkyIncidentUriBuilder))]
 pub fn mapky_incident_uri_builder(author_id: String, incident_id: String) -> String {
