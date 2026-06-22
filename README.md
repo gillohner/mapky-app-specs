@@ -10,7 +10,7 @@ MapKy is a decentralized social layer on OpenStreetMap using [Pubky](https://pub
 
 | Model | Path | Anchored to | Description |
 |---|---|---|---|
-| `MapkyAppPost` | `/pub/mapky.app/posts/<id>` | OSM URL | Reviews, questions, comments about places |
+| `MapkyAppReview` | `/pub/mapky.app/reviews/<id>` | OSM URL | Reviews, questions, comments about places |
 | `MapkyAppIncident` | `/pub/mapky.app/incidents/<id>` | lat/lon | Waze-style crowdsourced hazard report |
 | `MapkyAppGeoCapture` | `/pub/mapky.app/geo_captures/<id>` | lat/lon | Street-level media (photos, panoramas, video, 3D, point cloud, audio) |
 | `MapkyAppSequence` | `/pub/mapky.app/sequences/<id>` | ordered geo-capture list | Continuous trajectory of captures (e.g. driving panorama runs) |
